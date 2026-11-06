@@ -1,0 +1,28 @@
+  mutant 'read returns wrong offset': refuted by a counterexample
+  mutant 'pop forgets to shrink the block': refuted by a counterexample
+  mutant 'multi-block pieces not reversed': refuted by a counterexample
+  mutant 'pop deletes one block too many': refuted by a counterexample
+  mutant 'partial piece takes the wrong units': refuted by a counterexample
+  mutant 'read modifies the stack': refuted by a counterexample
+  mutant 'exact pop keeps the id': refuted by a counterexample
+  mutant 'multi-block pop trims sizes only': refuted by a counterexample
+  mutant 'multi-block read trims sizes': refuted by a counterexample
+Self-test: 9/9 injected bugs refuted (the proofs are not vacuous)
+Fidelity: transcription equals lifo.sweep on all 127,399 routes of 3,000 random ledgers
+Part 1  depth 0: push 1 path, pop 0 paths, read 0 paths - all proved
+Part 1  depth 1: push 1 path, pop 2 paths, read 1 paths - all proved
+Part 1  depth 2: push 1 path, pop 4 paths, read 3 paths - all proved
+Part 1  depth 3: push 1 path, pop 6 paths, read 5 paths - all proved
+Part 1  depth 4: push 1 path, pop 8 paths, read 7 paths - all proved
+Part 1  depth 5: push 1 path, pop 10 paths, read 9 paths - all proved
+Part 1  depth 6: push 1 path, pop 12 paths, read 11 paths - all proved
+Part 1  depth 7: push 1 path, pop 14 paths, read 13 paths - all proved
+Part 1  depth 8: push 1 path, pop 16 paths, read 15 paths - all proved
+Part 1  depth 9: push 1 path, pop 18 paths, read 17 paths - all proved
+Part 1  depth 10: push 1 path, pop 20 paths, read 19 paths - all proved
+Part 1  depth 11: push 1 path, pop 22 paths, read 21 paths - all proved
+Part 1  depth 12: push 1 path, pop 24 paths, read 23 paths - all proved
+Part 1  T6: 313 feasible paths of the sweep's event code proved, stacks of 0-12 blocks, all inflow ids, block sizes and amounts
+Part 2  T1, T5: induction-step arithmetic proved for all 5 transaction kinds, plus the base case
+Part 3  T3: 153 push orders checked for a = 1..5; only the order-preserving push leaves every label sequence unchanged
+all SMT obligations discharged by Z3 in 9 s

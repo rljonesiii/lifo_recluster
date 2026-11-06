@@ -1,0 +1,7 @@
+S1: <= 5 transactions, <= 3 wallets, amounts 1-2: 192,286 ledgers, 800,718 (ledger, clustering) cases, 75,587,002 engine states checked (5 settings) - all passed in 592 s
+S2: <= 5 transactions, exactly 4 wallets, amounts 1-2: 76,234 ledgers, 1,143,510 (ledger, clustering) cases, 271,469,274 engine states checked (5 settings) - all passed in 2399 s
+TOTAL: 268,520 ledgers, 1,944,228 clustering cases, 347,056,276 engine states checked; T1, T2, T4, T5, T7 asserted on the specification, every state equal to it
+
+real	49m51.186s
+user	98m41.799s
+sys	0m1.304s

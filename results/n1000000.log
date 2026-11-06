@@ -1,0 +1,58 @@
+{"n": 1000000, "wallets": 481619, "clusters": 391861, "largest_cluster_members": [11374, 11498, 11537, 11659], "largest_cluster_events": [68699, 69171, 69445, 69805], "internal_tx": 104575, "stolen_carrying_tx": 58786, "max_hops": 53, "median_hops": 16, "p90_hops": 27, "stolen_exchange_deposits": 7188, "exchange_deposits_ge20_hops": 2160, "gen_s": 2.615976305999993, "ledger_mb": 72.1015625}
+nested-excursion merge (no-op)             inc       0.1 ms  fresh    2614.7 ms  x 18808.7  swept       4 routes      0 relab       0 changed       0 cache 0 linear 0 ok=True
+late local merge                           inc       0.1 ms  fresh    2417.0 ms  x 18722.2  swept       4 routes      1 relab       1 changed       1 cache 0 linear 0 ok=True
+entity discovery merge                     inc       0.3 ms  fresh    2420.0 ms  x  9594.0  swept      11 routes      4 relab      27 changed       3 cache 0 linear 0 ok=True
+root merge (large early hack-1 holders)    inc       0.6 ms  fresh    2653.7 ms  x  4740.4  swept      14 routes      3 relab      45 changed      18 cache 0 linear 0 ok=True
+distant-branch merge (hack 1 x hack 2)     inc       0.3 ms  fresh    2797.4 ms  x 10610.6  swept      10 routes      2 relab      14 changed       9 cache 0 linear 0 ok=True
+absorb into exchange cluster               inc     229.1 ms  fresh    2597.6 ms  x    11.3  swept   69824 routes    165 relab     450 changed     198 cache 0 linear 0 ok=True
+overlapping merge (4 + 5a)                 inc       0.2 ms  fresh    2595.3 ms  x 16419.2  swept      24 routes      2 relab       3 changed       1 cache 0 linear 0 ok=True
+split v4 out of (4+5a)                     inc       0.6 ms  fresh    2367.2 ms  x  4102.0  swept      12 routes      5 relab      48 changed      19 cache 1 linear 0 ok=True
+split exchange 1 in half                   inc     355.6 ms  fresh    2638.2 ms  x     7.4  swept   80558 routes  25821 relab   44462 changed   16272 cache 0 linear 0 ok=True
+merge exchanges 2 + 3                      inc     763.9 ms  fresh    2481.9 ms  x     3.2  swept  138457 routes  49617 relab   82494 changed   30276 cache 0 linear 0 ok=True
+undo late local merge                      inc       0.1 ms  fresh    2500.0 ms  x 25514.0  swept       0 routes      1 relab       1 changed       1 cache 2 linear 0 ok=True
+re-merge exchange 1                        inc     195.5 ms  fresh    2522.8 ms  x    12.9  swept       0 routes  25821 relab   44406 changed   16206 cache 1 linear 0 ok=True
+undo exchange 2 + 3 merge                  inc     336.7 ms  fresh    2620.8 ms  x     7.8  swept       0 routes  49617 relab   81420 changed   29427 cache 2 linear 0 ok=True
+merge all four exchanges                   inc    1156.6 ms  fresh    2703.8 ms  x     2.3  swept  276143 routes 120947 relab  179130 changed   63034 cache 0 linear 0 ok=True
+build 5.39s engine 318 MB
+  mem nested-excursion merge (no-op)             inc peak     0.00 MB   fresh peak   199.42 MB
+  mem late local merge                           inc peak     0.00 MB   fresh peak   199.42 MB
+  mem entity discovery merge                     inc peak     0.01 MB   fresh peak   199.42 MB
+  mem root merge (large early hack-1 holders)    inc peak     0.01 MB   fresh peak   199.42 MB
+  mem distant-branch merge (hack 1 x hack 2)     inc peak     0.01 MB   fresh peak   199.42 MB
+  mem absorb into exchange cluster               inc peak    14.81 MB   fresh peak   199.42 MB
+  mem overlapping merge (4 + 5a)                 inc peak     0.01 MB   fresh peak   199.42 MB
+  mem split v4 out of (4+5a)                     inc peak     0.01 MB   fresh peak   199.42 MB
+  mem split exchange 1 in half                   inc peak    18.12 MB   fresh peak   199.60 MB
+  mem merge exchanges 2 + 3                      inc peak    36.12 MB   fresh peak   199.61 MB
+  mem undo late local merge                      inc peak     0.00 MB   fresh peak   199.61 MB
+  mem re-merge exchange 1                        inc peak     3.91 MB   fresh peak   199.45 MB
+  mem undo exchange 2 + 3 merge                  inc peak     8.19 MB   fresh peak   199.42 MB
+  mem merge all four exchanges                   inc peak    61.83 MB   fresh peak   199.58 MB
+  no_cache  nested-excursion merge (no-op)             inc       0.2 ms swept       4 relab       0 linear 0 ok=True
+  no_cache  late local merge                           inc       0.1 ms swept       4 relab       1 linear 0 ok=True
+  no_cache  entity discovery merge                     inc       0.2 ms swept      11 relab      27 linear 0 ok=True
+  no_cache  root merge (large early hack-1 holders)    inc       0.4 ms swept      14 relab      45 linear 0 ok=True
+  no_cache  distant-branch merge (hack 1 x hack 2)     inc       0.2 ms swept      10 relab      14 linear 0 ok=True
+  no_cache  absorb into exchange cluster               inc     207.2 ms swept   69824 relab     450 linear 0 ok=True
+  no_cache  overlapping merge (4 + 5a)                 inc       0.2 ms swept      24 relab       3 linear 0 ok=True
+  no_cache  split v4 out of (4+5a)                     inc       0.6 ms swept      24 relab      48 linear 0 ok=True
+  no_cache  split exchange 1 in half                   inc     328.5 ms swept   80558 relab   44462 linear 0 ok=True
+  no_cache  merge exchanges 2 + 3                      inc     709.5 ms swept  138457 relab   82494 linear 0 ok=True
+  no_cache  undo late local merge                      inc       0.1 ms swept       4 relab       1 linear 0 ok=True
+  no_cache  re-merge exchange 1                        inc     377.0 ms swept   68699 relab   44406 linear 0 ok=True
+  no_cache  undo exchange 2 + 3 merge                  inc     716.0 ms swept  138616 relab   81420 linear 0 ok=True
+  no_cache  merge all four exchanges                   inc    1395.9 ms swept  276143 relab  179130 linear 0 ok=True
+  no_cutoff nested-excursion merge (no-op)             inc       0.1 ms swept       4 relab       0 linear 0 ok=True
+  no_cutoff late local merge                           inc       0.1 ms swept       4 relab       1 linear 0 ok=True
+  no_cutoff entity discovery merge                     inc       3.2 ms swept      11 relab     591 linear 0 ok=True
+  no_cutoff root merge (large early hack-1 holders)    inc     311.8 ms swept      14 relab  118101 linear 0 ok=True
+  no_cutoff distant-branch merge (hack 1 x hack 2)     inc       0.2 ms swept      10 relab      16 linear 0 ok=True
+  no_cutoff absorb into exchange cluster               inc     922.0 ms swept   69824 relab  255087 linear 1 ok=True
+  no_cutoff overlapping merge (4 + 5a)                 inc       0.2 ms swept      24 relab       4 linear 0 ok=True
+  no_cutoff split v4 out of (4+5a)                     inc     308.7 ms swept      12 relab  118103 linear 0 ok=True
+  no_cutoff split exchange 1 in half                   inc    1473.7 ms swept   80558 relab  697031 linear 1 ok=True
+  no_cutoff merge exchanges 2 + 3                      inc    1793.3 ms swept  138457 relab  715427 linear 1 ok=True
+  no_cutoff undo late local merge                      inc       0.1 ms swept       0 relab       1 linear 0 ok=True
+  no_cutoff re-merge exchange 1                        inc    1150.0 ms swept       0 relab  691375 linear 1 ok=True
+  no_cutoff undo exchange 2 + 3 merge                  inc    1309.5 ms swept       0 relab  701162 linear 1 ok=True
+  no_cutoff merge all four exchanges                   inc    2015.5 ms swept  276143 relab  768847 linear 1 ok=True
