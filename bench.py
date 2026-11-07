@@ -1,6 +1,6 @@
 """Scaling benchmark: incremental reclustering vs fresh full LIFO trace.
 
-python3 bench.py N [--seed S] [--mem] [--ablate] [--out results.json]
+python3 bench.py N [--seed S] [--mem] [--ablate] [--nb] [--out results.json]
 
 For one synthetic network of N transactions, builds the engine, then applies a fixed
 script of reclustering operations.  After every operation it times the incremental
@@ -8,6 +8,10 @@ update, times a fresh trace under the new clustering, and checks that per-transa
 attribution and per-cluster holdings are identical.  --mem repeats the script with
 tracemalloc to record peak memory per operation (timings come from the untraced run).
 --ablate repeats the script twice more: routing cache off, and equality cutoff off.
+--nb runs the compiled engine (lifo_nb) against the compiled fresh trace, compares the
+two label arenas in compiled code, and reports compile time separately; tracemalloc
+cannot see memory Numba allocates, so --mem then records the engine's state size
+(arrays and cache) after each operation instead of traced peaks.
 """
 import argparse
 import gc
@@ -205,7 +209,53 @@ def pick_ops(L, eng, meta, seed):
 
 
 # ------------------------------------------------------------------------ running
-def run_script(L, clusters, ops, mem=False, verify=True, **engine_kw):
+def state_mb(eng):
+    arrays = [v for v in vars(eng).values() if hasattr(v, "nbytes")] + list(vars(eng.A).values())
+    cache = [a for e in eng.cache.values() for a in e]
+    return sum(a.nbytes for a in arrays + cache if hasattr(a, "nbytes")) / 2**20
+
+
+def run_compiled(L, clusters, ops, mem=False, verify=True, **engine_kw):
+    import lifo_nb
+    gc.collect()
+    r0 = rss_mb()
+    t0 = time.perf_counter()
+    eng = lifo_nb.Engine(L, clusters, **engine_kw)
+    build = time.perf_counter() - t0
+    gc.collect()
+    eng_mb = rss_mb() - r0
+    eng.reset_stats()
+    rows = []
+    for name, kind, ws in ops:
+        gc.collect()
+        t0 = time.perf_counter()
+        if kind == "merge":
+            eng.merge(ws)
+        else:
+            eng.split(ws)
+        inc = time.perf_counter() - t0
+        st = eng.reset_stats()
+        st.pop("compactions")
+        row = dict(op=name, kind=kind, inc_s=inc, **st)
+        if mem:
+            row["state_mb"] = state_mb(eng)
+        gc.collect()
+        t0 = time.perf_counter()
+        fs, fl, FL, fhold = lifo_nb.fresh_trace_arrays(eng.A, eng.owner, eng.hold.shape[0])
+        row["fresh_s"] = time.perf_counter() - t0
+        if verify:
+            ok = lifo_nb._labels_differ(eng.ls, eng.ll, eng.LB, fs, fl, FL) < 0 and \
+                all(int(fhold[c]) == int(eng.hold[c]) for c in eng.members)
+            row["exact"] = ok
+            assert ok, f"mismatch after {name}"
+        del fs, fl, FL, fhold
+        rows.append(row)
+    return dict(build_s=build, engine_mb=eng_mb, rows=rows), eng
+
+
+def run_script(L, clusters, ops, mem=False, verify=True, compiled=False, **engine_kw):
+    if compiled:
+        return run_compiled(L, clusters, ops, mem, verify, **engine_kw)
     gc.collect()
     r0 = rss_mb()
     t0 = time.perf_counter()
@@ -260,8 +310,20 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--mem", action="store_true")
     ap.add_argument("--ablate", action="store_true")
+    ap.add_argument("--nb", action="store_true")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
+    compile_s = None
+    if a.nb:  # compile every kernel once on a small ledger, outside the timings
+        import lifo_nb
+        t0 = time.perf_counter()
+        (s0, d0, m0, so0, W0), cl0, _ = generate(2000, seed=9)
+        L0 = Ledger(s0, d0, m0, so0, W0)
+        e0 = lifo_nb.Engine(L0, cl0)
+        e0.merge([min(c) for c in cl0[:2]]); e0.split([min(cl0[0])]); e0.check_against_fresh()
+        e0.compact_slack = 0; e0._compact_if_needed()
+        compile_s = time.perf_counter() - t0
+        print(f"kernels compiled or loaded from cache in {compile_s:.1f} s")
 
     t0 = time.perf_counter()
     (src, dst, amt, sources, W), clusters, meta = generate(a.n, seed=a.seed)
@@ -304,10 +366,12 @@ def main():
     gc.collect()
     print(json.dumps(net))
 
-    res, eng = run_script(L, clusters, ops)
+    res, eng = run_script(L, clusters, ops, compiled=a.nb)
     del eng
     gc.collect()
-    result = dict(network=net, ops=[(o[0], o[1], len(o[2])) for o in ops], main=res)
+    result = dict(network=net, ops=[(o[0], o[1], len(o[2])) for o in ops], main=res,
+                  engine="lifo_nb (compiled)" if a.nb else "lifo (pure Python)",
+                  compile_s=compile_s)
     for r in res["rows"]:
         print(f"{r['op']:<42} inc {r['inc_s']*1000:9.1f} ms  fresh {r['fresh_s']*1000:9.1f} ms  "
               f"x{r['fresh_s']/max(r['inc_s'],1e-9):8.1f}  swept {r['swept']:>7} "
@@ -315,15 +379,18 @@ def main():
               f"cache {r['cache_hits']} linear {r['linear_pass']} ok={r['exact']}")
     print(f"build {res['build_s']:.2f}s engine {res['engine_mb']:.0f} MB")
     if a.mem:
-        mres, eng = run_script(L, clusters, ops, mem=True, verify=False)
+        mres, eng = run_script(L, clusters, ops, mem=True, verify=False, compiled=a.nb)
         del eng
         gc.collect()
         result["mem"] = mres
         for r in mres["rows"]:
-            print(f"  mem {r['op']:<42} inc peak {r['inc_peak_mb']:8.2f} MB   fresh peak {r['fresh_peak_mb']:8.2f} MB")
+            if a.nb:
+                print(f"  mem {r['op']:<42} engine state after {r['state_mb']:8.1f} MB")
+            else:
+                print(f"  mem {r['op']:<42} inc peak {r['inc_peak_mb']:8.2f} MB   fresh peak {r['fresh_peak_mb']:8.2f} MB")
     if a.ablate:
         for key, kw in (("no_cache", dict(cache_budget=0)), ("no_cutoff", dict(cutoff=False))):
-            ares, eng = run_script(L, clusters, ops, **kw)
+            ares, eng = run_script(L, clusters, ops, compiled=a.nb, **kw)
             del eng
             gc.collect()
             result[key] = ares

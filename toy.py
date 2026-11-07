@@ -1,6 +1,10 @@
 """The 15-transaction challenge ledger: fresh trace vs incremental engine for
-baseline, +B-E, +D-F, -B-E.  Prints per-transaction attribution and holdings."""
-from lifo import Ledger, Engine, fresh_trace, stolen_of
+baseline, +B-E, +D-F, -B-E.  Prints per-transaction attribution and holdings.
+Runs the compiled engine when Numba is installed (engine.py) and checks every state
+against the reference engine, the fresh trace and the unit-by-unit tracer."""
+import lifo
+from lifo import Ledger, fresh_trace, stolen_of
+from engine import Engine, COMPILED
 from test_engine import unit_trace
 
 NAMES = ["Stolen", "Clean", "A", "B", "C", "D", "E", "F", "G", "H", "I", "X", "Y"]
@@ -35,12 +39,14 @@ def clustering_names(eng):
 def main(verbose=True):
     L = ledger()
     eng = Engine(L)
+    ref = lifo.Engine(L)  # the reference, run in step
     snapshots = []
 
     def snap(title):
         co, hold = eng.cluster_of()
         out, fhold = fresh_trace(L, co)
         assert out == eng.labels, title
+        assert list(eng.labels) == ref.labels and list(eng.route) == ref.route, title
         uout, uhold = unit_trace(L, co)  # independent unit-by-unit tracer
         assert uout == out and {k: v for k, v in uhold.items() if v} == \
             {k: v for k, v in fhold.items() if v}, title
@@ -51,9 +57,12 @@ def main(verbose=True):
 
     snap("Baseline (all singletons)")
     eng.reset_stats()
-    eng.merge([IDX["B"], IDX["E"]]); s1 = eng.reset_stats(); snap("Event 1: merge B+E")
-    eng.merge([IDX["D"], IDX["F"]]); s2 = eng.reset_stats(); snap("Event 2: merge D+F")
-    eng.split([IDX["E"]]); s3 = eng.reset_stats(); snap("Event 3: split B|E, D+F kept")
+    eng.merge([IDX["B"], IDX["E"]]); ref.merge([IDX["B"], IDX["E"]])
+    s1 = eng.reset_stats(); snap("Event 1: merge B+E")
+    eng.merge([IDX["D"], IDX["F"]]); ref.merge([IDX["D"], IDX["F"]])
+    s2 = eng.reset_stats(); snap("Event 2: merge D+F")
+    eng.split([IDX["E"]]); ref.split([IDX["E"]])
+    s3 = eng.reset_stats(); snap("Event 3: split B|E, D+F kept")
 
     if verbose:
         hdr = f"{'t':>3} {'tx':<12}{'amt':>4}  " + "  ".join(f"{s[0][:22]:<24}" for s in snapshots)
@@ -65,7 +74,8 @@ def main(verbose=True):
                 c = f"{stolen_of(labels[t]):>3} {fmt_runs(labels[t])}" + (" int" if internal else "")
                 cells.append(f"{c:<24}")
             print(f"{r[0]:>3} {r[1]+'->'+r[2]:<12}{r[3]:>4}  " + "  ".join(cells))
-        print("\nEvery state above: engine = fresh trace = unit-by-unit tracer.\n")
+        which = "compiled engine (lifo_nb)" if COMPILED else "engine (lifo)"
+        print(f"\nEvery state above: {which} = reference engine = fresh trace = unit-by-unit tracer.\n")
         for title, labels, holds, co in snapshots:
             ex = {n: stolen_of(labels[t]) for t, n in ((13, "X"), (14, "Y"))}
             print(f"{title:<32} stolen to X={ex['X']:>3}  Y={ex['Y']:>3}   stolen still held: {holds}")

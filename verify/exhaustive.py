@@ -1,6 +1,8 @@
 """Bounded exhaustive verification of lifo.Engine against the unit-level specification.
 
-python3 verify/exhaustive.py [--quick]
+python3 verify/exhaustive.py [--quick] [--nb] [S1] [S2] [--part i/k]
+
+--nb checks the compiled engine (lifo_nb.Engine) instead of lifo.Engine.
 
 Scope (every case, no sampling; the two scopes share no ledger):
   S1: every valid ledger of 1-5 transactions using at most 3 wallets, amounts 1-2
@@ -21,7 +23,7 @@ lemmas of the Proofs tab are asserted on it:
 From it the reference state is built without the engine: route[t] = the units t carries,
 as maximal runs (inflow, offset, length); readers = the inverse of the routes; labels,
 stolen units per transaction, per-wallet net flows, and each cluster's holdings.
-lifo.fresh_trace must equal it.  T6 (pieces expand to exactly the units moved) follows
+lifo.fresh_trace must equal it (and, with --nb, the compiled lifo_nb.fresh_trace).  T6 (pieces expand to exactly the units moved) follows
 from every route check below, since the reference routes expand to the moved units.
 
 Engine runs, under five settings (defaults; heap only; heap only without the cutoff;
@@ -34,6 +36,8 @@ linear pass at once with no cache; linear pass at once with a 1-route cache):
     regroup(Q), so later steps hit, miss or evict a warm cache;
   * with default settings, from each P: every merge of two clusters and every split of
     a cluster, each followed by an undo.
+With --nb, the second and fourth settings also compact the compiled engine's arenas
+whenever dead rows outnumber live ones.
 After every operation the whole engine state must equal the reference for the expected
 clustering (computed by set operations alone): routes, readers, labels, stolen units per
 transaction, net flows, the partition and each cluster's holdings, the owner of every
@@ -47,6 +51,11 @@ from multiprocessing import Pool
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from lifo import Ledger, Engine, fresh_trace, stolen_of  # noqa: E402
+
+COMPILED = "--nb" in sys.argv
+if COMPILED:
+    import lifo_nb  # noqa: E402
+    Engine = lifo_nb.Engine  # noqa: F811
 
 STOLEN, CLEAN = 0, 1  # source wallets; labels 1 (stolen) and 0 (clean)
 CONFIGS = [
@@ -239,6 +248,10 @@ def reference(L, P, by_members):
     assert out == labels, "fresh_trace labels != specification"
     assert {k: v for k, v in fhold.items() if v} == {k: v for k, v in hold.items() if v}, \
         "fresh_trace holdings != specification"
+    if COMPILED:  # the compiled fresh trace, used by the benchmark as its reference
+        nout, nhold = lifo_nb.fresh_trace(L, co)
+        assert nout == labels and {k: v for k, v in nhold.items() if v} == \
+            {k: v for k, v in hold.items() if v}, "compiled fresh trace != specification"
     deposit = [L.source_label[L.src[t]] >= 0 for t in range(n)]
     route = [None if deposit[t] else runs_of_units(moved[t]) for t in range(n)]
     for t in range(n):
@@ -272,6 +285,8 @@ def reference(L, P, by_members):
 
 # ------------------------------------------------------------------- one ledger
 def check_state(E, R, by_members, what):
+    if COMPILED:
+        return check_exported(E, R, by_members, what)
     if E.route != R.route:
         raise AssertionError(f"routes ({what})")
     if E.readers != R.readers:
@@ -297,6 +312,24 @@ def check_state(E, R, by_members, what):
         raise AssertionError(f"cache accounting ({what})")
 
 
+def check_exported(E, R, by_members, what):
+    """The same checks on the compiled engine's state, exported to Python form."""
+    S = E.export()
+    for key, ref in (("route", R.route), ("readers", R.readers), ("labels", R.labels),
+                     ("stol", R.stol), ("net", R.net), ("clusters", R.hold)):
+        if S[key] != ref:
+            raise AssertionError(f"{key} ({what})")
+    if not S["owners_ok"]:
+        raise AssertionError(f"owner ({what})")
+    total = 0
+    for m, r, rd in S["cache"]:
+        if (r, rd) != by_members[m]:
+            raise AssertionError(f"cache entry ({what})")
+        total += len(r)
+    if total != S["cache_entries"] or S["cache_entries"] > S["cache_budget"]:
+        raise AssertionError(f"cache accounting ({what})")
+
+
 def check_ledger(tx):
     src = [s for s, _, _ in tx]
     dst = [d for _, d, _ in tx]
@@ -311,9 +344,11 @@ def check_ledger(tx):
     blocks = subsets(wallets)
     walk = euler_circuit(len(parts))
     ops = 0
-    for name, cfg in CONFIGS:
+    for ci, (name, cfg) in enumerate(CONFIGS):
         for P in parts:  # fresh engines, then every single-block regroup with undo
             E = Engine(L, P, **cfg)
+            if COMPILED and ci % 2:
+                E.compact_slack = 0  # compact the arenas whenever dead rows exceed live ones
             check_state(E, ref[P], by_members, f"{name}: build {sorted(map(sorted, P))}")
             for B in blocks:
                 Q = apply_regroup(P, [B])
@@ -339,6 +374,8 @@ def check_ledger(tx):
                     check_state(E, ref[P], by_members, "undo split")
                     ops += 2
         E = Engine(L, parts[walk[0]], **cfg)  # every ordered pair of clusterings, once
+        if COMPILED and ci % 2:
+            E.compact_slack = 0
         for i in walk[1:]:
             E.regroup(parts[i])
             check_state(E, ref[parts[i]], by_members, f"{name}: walk to {sorted(map(sorted, parts[i]))}")
@@ -370,12 +407,18 @@ def scope(name, quick):
 
 def main():
     quick = "--quick" in sys.argv
+    print(f"engine: {'lifo_nb.Engine (compiled)' if COMPILED else 'lifo.Engine'}")
     only = [a for a in sys.argv[1:] if a in ("S1", "S2")] or ["S1", "S2"]
     grand = dict(ledgers=0, clusterings=0, ops=0)
     for name in only:
         t0 = time.time()
         desc, all_l = scope(name, quick)
         chunks = [all_l[k:k + 200] for k in range(0, len(all_l), 200)]
+        part = next((a.split("/") for a in sys.argv if "/" in a and a[0].isdigit()), None)
+        if part:  # every k-th chunk, so a long scope can run in pieces
+            i, k = int(part[0]), int(part[1])
+            chunks = chunks[i::k]
+            desc += f", part {i + 1} of {k}"
         tot = dict(ledgers=0, clusterings=0, ops=0)
         with Pool(os.cpu_count() or 1) as pool:
             for res in pool.imap_unordered(run_chunk, chunks):

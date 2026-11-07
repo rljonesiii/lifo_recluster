@@ -1,0 +1,33 @@
+  t tx           amt  Baseline (all singleto    Event 1: merge B+E        Event 2: merge D+F        Event 3: split B|E, D+  
+  1 Stolen->A    100  100 [S100]                100 [S100]                100 [S100]                100 [S100]              
+  2 A->B          60   60 [S60]                  60 [S60]                  60 [S60]                  60 [S60]               
+  3 A->C          40   40 [S40]                  40 [S40]                  40 [S40]                  40 [S40]               
+  4 Clean->B      40    0 [C40]                   0 [C40]                   0 [C40]                   0 [C40]               
+  5 B->D          70   30 [S30, C40]             30 [S30, C40]             30 [S30, C40]             30 [S30, C40]          
+  6 C->E          40   40 [S40]                  40 [S40]                  40 [S40]                  40 [S40]               
+  7 D->F          50   10 [S10, C40]             10 [S10, C40]             10 [S10, C40] int         10 [S10, C40] int      
+  8 E->F          40   40 [S40]                  40 [S40]                  40 [S40]                  40 [S40]               
+  9 Clean->F      30    0 [C30]                   0 [C30]                   0 [C30]                   0 [C30]               
+ 10 F->G          80   40 [C10, S40, C30]        40 [C10, S40, C30]        40 [C10, S40, C30]        40 [C10, S40, C30]     
+ 11 D->H          20   20 [S20]                  20 [S20]                   0 [C20]                   0 [C20]               
+ 12 G->I          50   20 [S20, C30]             20 [S20, C30]             20 [S20, C30]             20 [S20, C30]          
+ 13 H->I          20   20 [S20]                  20 [S20]                   0 [C20]                   0 [C20]               
+ 14 I->X          60   30 [S10, C30, S20]        30 [S10, C30, S20]        10 [S10, C50]             10 [S10, C50]          
+ 15 G->Y          30   20 [C10, S20]             20 [C10, S20]             20 [C10, S20]             20 [C10, S20]          
+
+Every state above: compiled engine (lifo_nb) = reference engine = fresh trace = unit-by-unit tracer.
+
+Baseline (all singletons)        stolen to X= 30  Y= 20   stolen still held: {'B': 30, 'F': 10, 'I': 10, 'X': 30, 'Y': 20}
+Event 1: merge B+E               stolen to X= 30  Y= 20   stolen still held: {'F': 10, 'I': 10, 'X': 30, 'Y': 20, 'BE': 30}
+Event 2: merge D+F               stolen to X= 10  Y= 20   stolen still held: {'I': 10, 'X': 10, 'Y': 20, 'BE': 30, 'DF': 30}
+Event 3: split B|E, D+F kept     stolen to X= 10  Y= 20   stolen still held: {'I': 10, 'X': 10, 'Y': 20, 'DF': 30, 'B': 30}
+
+B+E        events_swept=5 routes_changed=0 relabeled=0 labels_changed=0 cache_hits=0
+D+F        events_swept=6 routes_changed=2 relabeled=4 labels_changed=3 cache_hits=0
+split B|E  events_swept=0 routes_changed=0 relabeled=0 labels_changed=0 cache_hits=2
+
+Sensitivity: if a transfer's funds were pushed upside down (pop order):
+  Baseline (all singletons)        X= 40  Y=  0
+  Event 1: merge B+E               X= 40  Y=  0
+  Event 2: merge D+F               X= 60  Y=  0
+  Event 3: split B|E, D+F kept     X= 60  Y=  0

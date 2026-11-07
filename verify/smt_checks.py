@@ -305,22 +305,42 @@ def self_test():
 
 
 def fidelity(n_ledgers=3000, seed=7):
-    """The transcription must compute exactly what lifo.sweep computes.  Run both on concrete
-    random ledgers and clusters (br() then just returns the concrete comparison) and compare
-    every route.  Together with Part 1 this ties the proof to the shipped code."""
+    """The transcription must compute exactly what the shipped sweeps compute.  Run it on
+    concrete random ledgers and clusters (br() then just returns the concrete comparison)
+    and compare every route with lifo.sweep and, when Numba is installed, with both
+    compiled code paths: lifo_nb._sweep (used by regroup) and the routes lifo_nb.Engine
+    builds in one pass over all clusters.  Together with Part 1 this ties the proof to the
+    shipped code.  Returns (routes compared, compiled code compared too)."""
     import os
     import random
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
     from lifo import sweep
     from test_engine import random_ledger, random_partition
+    try:
+        import numpy as np
+        import lifo_nb
+    except ImportError:
+        lifo_nb = None
     rng = random.Random(seed)
     routes = 0
     for _ in range(n_ledgers):
         L = random_ledger(rng, rng.randint(2, 8), rng.randint(5, 120), n_labels=2,
                           max_amt=rng.choice([3, 9, 50]))
-        for block in random_partition(rng, L.wallets(), 0.5):
+        part = random_partition(rng, L.wallets(), 0.5)
+        if lifo_nb:
+            A = lifo_nb.LedgerArrays(L)
+            mask = np.zeros(L.W, np.bool_)
+            mark = np.zeros(L.n, np.bool_)
+            slot = np.full(L.n, -1, np.int64)
+            built = lifo_nb.Engine(L, part).route
+        for block in part:
             members = frozenset(block)
             real, _, _ = sweep(L, members)
+            if lifo_nb:
+                tx, ptr, pcs, *_ = lifo_nb._sweep(np.array(sorted(members), np.int64), mask,
+                                                  A.wptr, A.widx, A.src, A.dst, A.amt, mark, slot)
+                compiled = {int(t): tuple(pcs[ptr[i]:ptr[i + 1]].ravel().tolist())
+                            for i, t in enumerate(tx)}
             ss, rr = [], []
             ev = sorted({t for w in members for t in L.wev[w]})
             for t in ev:
@@ -330,8 +350,11 @@ def fidelity(n_ledgers=3000, seed=7):
                 pieces = sent_step(ss, rr, L.amt[t], L.dst[t] in members, lambda c: c)
                 flat = tuple(x for piece in pieces for x in piece)
                 assert flat == real[t], f"transcription differs from lifo.sweep at tx {t}"
+                if lifo_nb:
+                    assert flat == compiled[t], f"transcription differs from lifo_nb._sweep at tx {t}"
+                    assert flat == built[t], f"transcription differs from lifo_nb's build at tx {t}"
                 routes += 1
-    return routes
+    return routes, lifo_nb is not None
 
 
 def main():
@@ -341,8 +364,10 @@ def main():
     t0 = time.time()
     if not self_test():
         sys.exit(1)
-    print(f"Fidelity: transcription equals lifo.sweep on all {fidelity():,} routes of 3,000 random "
-          f"ledgers")
+    n_routes, compiled = fidelity()
+    also = " and the compiled lifo_nb sweep and build" if compiled else " (Numba not installed)"
+    print(f"Fidelity: transcription equals lifo.sweep{also} on all {n_routes:,} routes of "
+          f"3,000 random ledgers")
     paths = 0
     for k in range(0, a.depth + 1):
         n_push = check_push(k)

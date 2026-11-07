@@ -8,7 +8,7 @@
   mutant 'multi-block pop trims sizes only': refuted by a counterexample
   mutant 'multi-block read trims sizes': refuted by a counterexample
 Self-test: 9/9 injected bugs refuted (the proofs are not vacuous)
-Fidelity: transcription equals lifo.sweep on all 127,399 routes of 3,000 random ledgers
+Fidelity: transcription equals lifo.sweep and the compiled lifo_nb sweep and build on all 127,399 routes of 3,000 random ledgers
 Part 1  depth 0: push 1 path, pop 0 paths, read 0 paths - all proved
 Part 1  depth 1: push 1 path, pop 2 paths, read 1 paths - all proved
 Part 1  depth 2: push 1 path, pop 4 paths, read 3 paths - all proved

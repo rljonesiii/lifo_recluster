@@ -1,4 +1,4 @@
-"""Differential tests for lifo.Engine.
+"""Differential tests for lifo.Engine and the compiled lifo_nb.Engine.
 
 After every merge, split or regroup on random ledgers and clusterings:
   * labels and holdings equal a fresh trace (lifo.fresh_trace);
@@ -7,13 +7,20 @@ After every merge, split or regroup on random ledgers and clusterings:
   * readers are the exact inverse of routing.
 Engine settings rotate through: defaults, an aggressive linear-pass threshold, a tiny or
 zero routing cache, and no equality cutoff.  Invalid input must be rejected atomically.
+With --nb the compiled engine is tested, and the reference lifo.Engine also runs every
+operation in lockstep: the two must agree on the whole state after every step (routes,
+readers, labels, stolen counts, net flows, partition, holdings, owners, the routing
+cache in LRU order) and on the work counters.
 
-Usage: python3 test_engine.py [n_cases] [seed]
+Usage: python3 test_engine.py [n_cases] [seed] [--nb]
 """
 import random
 import sys
 
-from lifo import Ledger, Engine, fresh_trace
+import lifo
+from lifo import Ledger, fresh_trace
+
+Engine = lifo.Engine
 
 
 # ------------------------------------------------------------------- generators
@@ -89,6 +96,10 @@ def check(eng, L, where, units=False):
     out, fhold = fresh_trace(L, co)
     assert out == eng.labels, f"labels differ from fresh trace {where}"
     assert nz(hold) == nz(fhold), f"holdings differ from fresh trace {where}"
+    if Engine is not lifo.Engine:  # the compiled fresh trace too
+        import lifo_nb
+        nout, nhold = lifo_nb.fresh_trace(L, co)
+        assert nout == out and nz(nhold) == nz(fhold), f"compiled fresh trace differs {where}"
     if units:
         uout, uhold = unit_trace(L, co)
         assert uout == out and nz(uhold) == nz(fhold), f"fresh_trace differs from unit tracer {where}"
@@ -109,8 +120,28 @@ MODES = [dict(), dict(sweep_after=2), dict(cache_budget=5), dict(cache_budget=0)
          dict(cutoff=False)]
 
 
-def run(n_cases=1000, seed=1):
+COMPACTIONS = [0]
+
+
+def lockstep(eng, twin, where):
+    if twin is None:
+        return
+    from lifo_nb import state_of
+    a, b = state_of(eng), state_of(twin)
+    for k in a:
+        assert a[k] == b[k], f"compiled engine differs from lifo.Engine in {k} {where}"
+    s = dict(eng.stats)
+    COMPACTIONS[0] += s.pop("compactions")
+    eng.stats["compactions"] = 0
+    assert s == twin.stats, f"work counters differ {where}"
+
+
+def run(n_cases=1000, seed=1, compiled=False):
     """Returns (operations, operations on ledgers also checked by the unit tracer)."""
+    global Engine
+    if compiled:
+        import lifo_nb
+        Engine = lifo_nb.Engine
     rng = random.Random(seed)
     ops = uops = 0
     for case in range(n_cases):
@@ -123,7 +154,11 @@ def run(n_cases=1000, seed=1):
         wallets = L.wallets()
         init = random_partition(rng, wallets, p_join=rng.choice([0.0, 0.3, 0.6]))
         eng = Engine(L, init, **MODES[case % len(MODES)])
+        twin = lifo.Engine(L, init, **MODES[case % len(MODES)]) if compiled else None
+        if compiled and case % 2:
+            eng.compact_slack = 0  # compact the arenas whenever dead rows exceed live ones
         check(eng, L, f"case {case} init", units)
+        lockstep(eng, twin, f"case {case} init")
         for step in range(rng.randint(1, 12)):
             cl = eng.clusters()
             r = rng.random()
@@ -131,6 +166,7 @@ def run(n_cases=1000, seed=1):
                 pick = rng.sample(cl, 3 if len(cl) >= 3 and rng.random() < 0.3 else 2)
                 ws = [min(c.members) for c in pick]
                 eng.merge(ws)
+                twin and twin.merge(ws)
                 what = ("merge", ws)
             elif r < 0.7:
                 multi = [c for c in cl if len(c.members) >= 2]
@@ -139,16 +175,19 @@ def run(n_cases=1000, seed=1):
                 mem = sorted(rng.choice(multi).members)
                 part = rng.sample(mem, rng.randint(1, len(mem) - 1))
                 eng.split(part)
+                twin and twin.split(part)
                 what = ("split", part)
             else:
                 k = rng.randint(1, 3)
                 pool = rng.sample(wallets, min(len(wallets), rng.randint(2, 8)))
                 blocks = [pool[i::k] for i in range(k) if pool[i::k]]
                 eng.regroup(blocks)
+                twin and twin.regroup(blocks)
                 what = ("regroup", blocks)
             ops += 1
             uops += units
             check(eng, L, f"case {case} step {step} {what}", units)
+            lockstep(eng, twin, f"case {case} step {step} {what}")
     return ops, uops
 
 
@@ -192,10 +231,14 @@ def validation():
 
 
 if __name__ == "__main__":
+    compiled = "--nb" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--nb"]
+    n_cases = int(args[0]) if len(args) > 0 else 1000
+    seed = int(args[1]) if len(args) > 1 else 1
+    ops, uops = run(n_cases, seed, compiled)
     validation()
-    n_cases = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
-    seed = int(sys.argv[2]) if len(sys.argv) > 2 else 1
-    ops, uops = run(n_cases, seed)
-    print(f"OK (seed {seed}): {n_cases} random ledgers, {ops} operations, every result identical "
-          f"to a fresh trace and to a rebuild; on the {uops} operations over small-amount "
-          f"ledgers the fresh trace also matched the unit-by-unit tracer")
+    which = (f"lifo_nb.Engine (compiled; {COMPACTIONS[0]} arena compactions), in lockstep with "
+             f"lifo.Engine," if compiled else "lifo.Engine")
+    print(f"OK (seed {seed}): {which} on {n_cases} random ledgers, {ops} operations, every result "
+          f"identical to a fresh trace and to a rebuild; on the {uops} operations over "
+          f"small-amount ledgers the fresh trace also matched the unit-by-unit tracer")
