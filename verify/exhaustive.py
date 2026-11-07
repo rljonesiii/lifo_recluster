@@ -40,8 +40,8 @@ With --nb, the second and fourth settings also compact the compiled engine's are
 whenever dead rows outnumber live ones.
 After every operation the whole engine state must equal the reference for the expected
 clustering (computed by set operations alone): routes, readers, labels, stolen units per
-transaction, net flows, the partition and each cluster's holdings, the owner of every
-wallet, and every cache entry (its routes and readers must equal those of its membership).
+transaction, net flows, the partition (in the order clusters() lists it) and each
+cluster's holdings, the owner of every wallet, and every cache entry (its routes and readers must equal those of its membership).
 After each engine's run of operations, its own check_against_fresh() must pass and, with
 --nb, its hidden state must be consistent (check_invariants: live-row counters, arena
 bounds and compaction, scratch arrays left clean, cluster ids, holdings).
@@ -237,7 +237,7 @@ def inverse(routes):
 
 class Ref:
     """The state an exact engine must hold for clustering P, built from the specification."""
-    __slots__ = ("P", "route", "readers", "labels", "stol", "net", "hold")
+    __slots__ = ("P", "route", "readers", "labels", "stol", "net", "hold", "order")
 
 
 def reference(L, P, by_members):
@@ -270,6 +270,7 @@ def reference(L, P, by_members):
             net[L.src[t]] -= stol[t]
     R = Ref()
     R.P = frozenset(P)
+    R.order = sorted(P, key=min)  # clusters() lists clusters by their first wallet
     R.hold = {}
     readers = {}
     for b in P:
@@ -302,6 +303,8 @@ def check_state(E, R, by_members, what):
         raise AssertionError(f"net flows ({what})")
     if {c.members: c.hold for c in E.clusters()} != R.hold:
         raise AssertionError(f"partition or holdings ({what})")
+    if [c.members for c in E.clusters()] != R.order:
+        raise AssertionError(f"order of clusters() ({what})")
     for b in R.P:
         for w in b:
             if w not in E.owner[w].members:
@@ -322,6 +325,8 @@ def check_exported(E, R, by_members, what):
                      ("stol", R.stol), ("net", R.net), ("clusters", R.hold)):
         if S[key] != ref:
             raise AssertionError(f"{key} ({what})")
+    if list(S["clusters"]) != R.order:
+        raise AssertionError(f"order of clusters() ({what})")
     if not S["owners_ok"]:
         raise AssertionError(f"owner ({what})")
     total = 0
