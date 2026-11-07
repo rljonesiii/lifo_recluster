@@ -42,9 +42,11 @@ After every operation the whole engine state must equal the reference for the ex
 clustering (computed by set operations alone): routes, readers, labels, stolen units per
 transaction, net flows, the partition (in the order clusters() lists it) and each
 cluster's holdings, the owner of every wallet, and every cache entry (its routes and readers must equal those of its membership).
-After each engine's run of operations, its own check_against_fresh() must pass and, with
---nb, its hidden state must be consistent (check_invariants: live-row counters, arena
-bounds and compaction, scratch arrays left clean, cluster ids, holdings).
+After each engine's run of operations, and after every 16th operation within it, its own
+check_against_fresh() must pass and, with --nb, its hidden state must be consistent
+(check_invariants: live-row counters, arena bounds and compaction, scratch arrays left
+clean, cluster ids, holdings).  The mid-run checks matter: every run ends in the
+clustering it started from, so a counter that drifts and drifts back would otherwise pass.
 """
 import os
 import sys
@@ -288,7 +290,13 @@ def reference(L, P, by_members):
 
 
 # ------------------------------------------------------------------- one ledger
+CHECKS = [0]
+
+
 def check_state(E, R, by_members, what):
+    CHECKS[0] += 1
+    if CHECKS[0] % 16 == 0:  # mid-run too: every run ends where it started, which hides drift
+        check_hidden(E, what)
     if COMPILED:
         return check_exported(E, R, by_members, what)
     if E.route != R.route:
