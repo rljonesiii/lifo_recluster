@@ -1,0 +1,23 @@
+$ python3 experiments.py
+network: 1,000,000 transactions, 481,619 wallets, built in 6.9 s
+largest cluster by events: 11,498 wallets, 69,805 events
+
+one cluster's sweep (event list, LIFO pass, readers)
+  lifo.sweep, plain Python            132.03 ms
+  pure functional fold                128.52 ms   0.97x the plain loop's time
+  lifo_nb._sweep, compiled              6.15 ms   21x faster than plain Python (first call 560.7 ms, compiled code loaded from the cache); routes and readers identical
+
+the cluster's event list
+  Python set + sort                    19.17 ms
+  NumPy unique(concatenate)             3.37 ms   5.7x faster
+  NumPy mask over the whole ledger      1.91 ms   10.0x faster (scans all 1,000,000)
+
+one label recomputation (20,000 sending transactions, 1.41 pieces on average)
+  Python tuples                         0.58 us
+  NumPy calls                          20.78 us   36x slower
+
+per-wallet net stolen flows over the whole ledger
+  Python loop                          55.83 ms
+  NumPy bincount                       10.16 ms   5.5x faster
+(exit 0, 19 s wall)
+

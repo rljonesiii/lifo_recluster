@@ -1,3 +1,4 @@
+$ python3 mutate.py --exhaustive
 readers not dropped                    caught: AssertionError: readers differ from rebuild case 0 step 0 ('merge', [9, 14])
 readers not rebuilt                    caught: AssertionError: labels differ from fresh trace case 0 step 0 ('merge', [9, 1
 holdings miss members                  caught: AssertionError: holdings differ from fresh trace case 0 step 1 ('split', [9]
@@ -9,7 +10,8 @@ cutoff on changed labels               caught: AssertionError: labels differ fro
 linear pass skipped                    caught: AssertionError: labels differ from fresh trace case 0 step 0 ('merge', [9, 1
 remainder dropped                      caught: AssertionError: labels differ from fresh trace case 0 step 1 ('split', [9])
 cached cluster's readers kept          caught: AssertionError: readers differ from rebuild case 0 step 4 ('regroup', [[5], 
-11/11 injected bugs caught by test_engine.py
+self-check: ignores holdings           caught: AssertionError: check_against_fresh missed a wrong holding
+12/12 injected bugs caught by test_engine.py
 readers not dropped                    caught: AssertionError: readers (defaults: regroup [2, 3] from [[2], [3]])
 readers not rebuilt                    caught: AssertionError: readers (defaults: regroup [2, 3] from [[2], [3]])
 holdings miss members                  caught: AssertionError: partition or holdings (defaults: regroup [2, 3] fr
@@ -21,4 +23,7 @@ cutoff on changed labels               caught: AssertionError: labels (defaults:
 linear pass skipped                    caught: AssertionError: labels (linear pass, no cache: regroup [2, 3] from
 remainder dropped                      caught: AssertionError: partition or holdings (defaults: regroup [2] from 
 cached cluster's readers kept          caught: AssertionError: readers (defaults: undo regroup [2, 3])
+self-check: ignores holdings           skipped (a self-check; see test_engine.py's negative tests)
 11/11 injected bugs caught by verify/exhaustive.py
+(exit 0, 26 s wall)
+

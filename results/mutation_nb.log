@@ -1,3 +1,4 @@
+$ python3 mutate.py --exhaustive --nb
 readers not dropped                    caught: AssertionError: readers differ from rebuild case 0 step 0 ('merge', [9, 14])
 readers not rebuilt                    caught: AssertionError: labels differ from fresh trace case 0 step 0 ('merge', [9, 1
 holdings miss members                  caught: AssertionError: holdings differ from fresh trace case 0 step 1 ('split', [9]
@@ -8,13 +9,20 @@ stolen count wrong                     caught: AssertionError: holdings differ f
 cutoff on changed labels               caught: AssertionError: labels differ from fresh trace case 0 step 0 ('merge', [9, 1
 linear pass skipped                    caught: AssertionError: labels differ from fresh trace case 0 step 0 ('merge', [9, 1
 remainder dropped                      caught: AssertionError: labels differ from fresh trace case 0 step 1 ('split', [9])
-cached cluster's readers kept          caught: AssertionError: readers differ from rebuild case 0 step 4 ('regroup', [[5], 
+cached cluster's readers kept          caught: AssertionError: compiled engine's hidden state: ['readers: live counter 2868
 build: multi-block pop keeps blocks    caught: AssertionError: labels differ from fresh trace case 0 init
 compaction drops a row                 caught: AssertionError: labels differ from fresh trace case 0 step 1 ('split', [9])
-seen marks not cleared                 caught: AssertionError: labels differ from fresh trace case 0 step 1 ('split', [9])
+seen marks not cleared                 caught: AssertionError: compiled engine's hidden state: ['a scratch array was left d
 compiled fresh trace pushes reversed   caught: AssertionError: compiled fresh trace differs case 0 init
-15/15 injected bugs caught by test_engine.py
-readers not dropped                    caught: AssertionError: readers (defaults: regroup [2, 3] from [[2], [3]])
+live reader count not decremented      caught: AssertionError: compiled engine's hidden state: ['readers: live counter 2868
+live piece count not updated           caught: AssertionError: compiled engine's hidden state: ['routes: live counter 2691 
+compaction never runs                  caught: AssertionError: compiled engine's hidden state: ['an arena holds more dead r
+holdings array growth off by one       caught: IndexError: index 16 is out of bounds for axis 0 with size 16
+clusters() in another order            caught: AssertionError: clusters() lists the clusters in another order case 0 step 0
+self-check: label units ignored        caught: AssertionError: check_against_fresh missed a wrong label (column 1)
+self-check: ignores holdings           caught: AssertionError: check_against_fresh missed a wrong holding
+22/22 injected bugs caught by test_engine.py
+readers not dropped                    caught: AssertionError: hidden state: ['readers: live counter 5 != 1'] (de
 readers not rebuilt                    caught: AssertionError: readers (defaults: regroup [2, 3] from [[2], [3]])
 holdings miss members                  caught: AssertionError: clusters (defaults: regroup [2, 3] from [[2], [3]]
 net flows not updated                  caught: AssertionError: net (defaults: regroup [2, 3] from [[2], [3]])
@@ -24,10 +32,18 @@ stolen count wrong                     caught: AssertionError: stol (defaults: b
 cutoff on changed labels               caught: AssertionError: labels (defaults: regroup [2, 3] from [[2], [3], [
 linear pass skipped                    caught: AssertionError: labels (linear pass, no cache: regroup [2, 3] from
 remainder dropped                      caught: AssertionError: clusters (defaults: regroup [2] from [[2, 3]])
-cached cluster's readers kept          caught: AssertionError: readers (defaults: undo regroup [2, 3])
+cached cluster's readers kept          caught: AssertionError: hidden state: ['readers: live counter 4 != 1'] (de
 build: multi-block pop keeps blocks    caught: AssertionError: route (defaults: build [[2], [3]])
-compaction drops a row                 caught: AssertionError: readers (heap only: undo regroup [2, 3])
-seen marks not cleared                 caught: AssertionError: labels (defaults: undo regroup [2, 3])
+compaction drops a row                 caught: AssertionError: route (heap only: undo regroup [2, 3])
+seen marks not cleared                 caught: AssertionError: hidden state: ['a scratch array was left dirty'] (
 compiled fresh trace pushes reversed   caught: AssertionError: compiled fresh trace != specification
-15/15 injected bugs caught by verify/exhaustive.py
-exit 0
+live reader count not decremented      caught: AssertionError: hidden state: ['readers: live counter 5 != 1'] (de
+live piece count not updated           caught: AssertionError: hidden state: ['routes: live counter 1 != 2'] (def
+compaction never runs                  caught: AssertionError: hidden state: ['an arena holds more dead rows than
+holdings array growth off by one       NOT caught (needs more than 16 cluster ids, beyond the scope)
+clusters() in another order            caught: AssertionError: order of clusters() (defaults: build [[2], [3]])
+self-check: label units ignored        skipped (a self-check; see test_engine.py's negative tests)
+self-check: ignores holdings           skipped (a self-check; see test_engine.py's negative tests)
+19/20 injected bugs caught by verify/exhaustive.py
+(exit 0, 895 s wall)
+

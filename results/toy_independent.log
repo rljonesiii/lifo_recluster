@@ -1,0 +1,87 @@
+$ python3 verify/toy_independent.py
+=== 1 singletons
+   1 Stolen->A 100: stolen=100  [S100]
+   2 A->B  60: stolen= 60  [S60]
+   3 A->C  40: stolen= 40  [S40]
+   4 Clean->B  40: stolen=  0  [C40]
+   5 B->D  70: stolen= 30  [S30 C40]
+   6 C->E  40: stolen= 40  [S40]
+   7 D->F  50: stolen= 10  [S10 C40]
+   8 E->F  40: stolen= 40  [S40]
+   9 Clean->F  30: stolen=  0  [C30]
+  10 F->G  80: stolen= 40  [C10 S40 C30]
+  11 D->H  20: stolen= 20  [S20]
+  12 G->I  50: stolen= 20  [S20 C30]
+  13 H->I  20: stolen= 20  [S20]
+  14 I->X  60: stolen= 30  [S10 C30 S20]
+  15 G->Y  30: stolen= 20  [C10 S20]
+  X=30 Y=20
+  held stolen: {'B': 30, 'F': 10, 'I': 10, 'X': 30, 'Y': 20}
+  final stacks: {'B': 'S30', 'F': 'S10 C30', 'I': 'S10', 'X': 'S10 C30 S20', 'Y': 'C10 S20'}
+  FLIP: X=40 Y=0
+=== 2 B+E
+   1 Stolen->A 100: stolen=100  [S100]
+   2 A->B  60: stolen= 60  [S60]
+   3 A->C  40: stolen= 40  [S40]
+   4 Clean->B  40: stolen=  0  [C40]
+   5 B->D  70: stolen= 30  [S30 C40]
+   6 C->E  40: stolen= 40  [S40]
+   7 D->F  50: stolen= 10  [S10 C40]
+   8 E->F  40: stolen= 40  [S40]
+   9 Clean->F  30: stolen=  0  [C30]
+  10 F->G  80: stolen= 40  [C10 S40 C30]
+  11 D->H  20: stolen= 20  [S20]
+  12 G->I  50: stolen= 20  [S20 C30]
+  13 H->I  20: stolen= 20  [S20]
+  14 I->X  60: stolen= 30  [S10 C30 S20]
+  15 G->Y  30: stolen= 20  [C10 S20]
+  X=30 Y=20
+  held stolen: {'B+E': 30, 'F': 10, 'I': 10, 'X': 30, 'Y': 20}
+  final stacks: {'B+E': 'S30', 'F': 'S10 C30', 'I': 'S10', 'X': 'S10 C30 S20', 'Y': 'C10 S20'}
+  FLIP: X=40 Y=0
+=== 3 B+E, D+F
+   1 Stolen->A 100: stolen=100  [S100]
+   2 A->B  60: stolen= 60  [S60]
+   3 A->C  40: stolen= 40  [S40]
+   4 Clean->B  40: stolen=  0  [C40]
+   5 B->D  70: stolen= 30  [S30 C40]
+   6 C->E  40: stolen= 40  [S40]
+   7 D->F  50: stolen= 10  [S10 C40] (internal)
+   8 E->F  40: stolen= 40  [S40]
+   9 Clean->F  30: stolen=  0  [C30]
+  10 F->G  80: stolen= 40  [C10 S40 C30]
+  11 D->H  20: stolen=  0  [C20]
+  12 G->I  50: stolen= 20  [S20 C30]
+  13 H->I  20: stolen=  0  [C20]
+  14 I->X  60: stolen= 10  [S10 C50]
+  15 G->Y  30: stolen= 20  [C10 S20]
+  X=10 Y=20
+  held stolen: {'B+E': 30, 'D+F': 30, 'I': 10, 'X': 10, 'Y': 20}
+  final stacks: {'B+E': 'S30', 'D+F': 'S30 C10', 'I': 'S10', 'X': 'S10 C50', 'Y': 'C10 S20'}
+  FLIP: X=60 Y=0
+=== 4 D+F
+   1 Stolen->A 100: stolen=100  [S100]
+   2 A->B  60: stolen= 60  [S60]
+   3 A->C  40: stolen= 40  [S40]
+   4 Clean->B  40: stolen=  0  [C40]
+   5 B->D  70: stolen= 30  [S30 C40]
+   6 C->E  40: stolen= 40  [S40]
+   7 D->F  50: stolen= 10  [S10 C40] (internal)
+   8 E->F  40: stolen= 40  [S40]
+   9 Clean->F  30: stolen=  0  [C30]
+  10 F->G  80: stolen= 40  [C10 S40 C30]
+  11 D->H  20: stolen=  0  [C20]
+  12 G->I  50: stolen= 20  [S20 C30]
+  13 H->I  20: stolen=  0  [C20]
+  14 I->X  60: stolen= 10  [S10 C50]
+  15 G->Y  30: stolen= 20  [C10 S20]
+  X=10 Y=20
+  held stolen: {'B': 30, 'D+F': 30, 'I': 10, 'X': 10, 'Y': 20}
+  final stacks: {'B': 'S30', 'D+F': 'S30 C10', 'I': 'S10', 'X': 'S10 C50', 'Y': 'C10 S20'}
+  FLIP: X=60 Y=0
+1 singletons: identical to lifo.fresh_trace and lifo.Engine and lifo_nb.Engine
+2 B+E: identical to lifo.fresh_trace and lifo.Engine and lifo_nb.Engine
+3 B+E, D+F: identical to lifo.fresh_trace and lifo.Engine and lifo_nb.Engine
+4 D+F: identical to lifo.fresh_trace and lifo.Engine and lifo_nb.Engine
+(exit 0, 1 s wall)
+

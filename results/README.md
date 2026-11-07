@@ -15,10 +15,12 @@ time. All commands run from the package root.
 | `mutation_nb.log` | `python3 mutate.py --exhaustive --nb` | 22 bugs injected into `lifo_nb.py` |
 | `smt.log` | `python3 verify/smt_checks.py` | The Z3 proofs, their self-test and the fidelity check |
 | `exhaustive.log` | `python3 verify/exhaustive.py` | The reference engine over the whole bounded scope (S1 and S2) |
-| `exhaustive_nb.log` | `python3 verify/exhaustive.py --nb S1`, then `--nb S2 0/2` and `--nb S2 1/2` | The compiled engine over the same scope, in three runs |
+| `exhaustive_nb.log` | `python3 verify/exhaustive.py --nb S1`, then `--nb S2 0/4`, `1/4`, `2/4` and `3/4` | The compiled engine over the same scope, in five runs |
 | `n10000.*`, `n100000.*`, `n1000000.*` | `python3 bench.py N --mem --ablate --out results/nN.json` | The reference engine's benchmark; `.json` holds every timing, work counter and memory reading |
 | `nb_n10000.*`, `nb_n100000.*`, `nb_n1000000.*` | `python3 bench.py N --nb --mem --ablate --out results/nb_nN.json` | The compiled engine's benchmark |
 | `experiments.log` | `python3 experiments.py` | The micro-benchmarks behind "compile rather than vectorize", on the 1M network |
 
-The benchmarks ran one at a time with nothing else on the machine. Timings vary by a few
-percent from run to run; work counters and results do not.
+The benchmarks ran one at a time with nothing else on the machine. Each operation is timed
+once, and single timings vary from run to run: the 14 compiled fresh traces at 1M, nearly the
+same computation, span 199-225 ms, and operations that the routing cache cannot affect differ
+by up to 30% between the main and cache-off runs. Work counters and results do not vary.

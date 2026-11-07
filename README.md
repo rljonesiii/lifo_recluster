@@ -22,7 +22,7 @@ load them in well under a second.
 | `engine.py` | Picks the compiled engine when available, the reference otherwise |
 | `toy.py` | The 15-transaction challenge ledger: baseline, +B–E, +D–F, −B–E, checked against fresh traces |
 | `test_engine.py` | Differential tests: random ledgers and operations, each result checked against a fresh trace and a from-scratch rebuild; on small-amount ledgers the fresh trace is also checked against an independent unit-by-unit tracer. With `--nb`, the compiled engine runs in lockstep with the reference and must match its whole state after every step, and its hidden state must stay consistent. Then targeted tests (amounts near and past the int64 bound, thresholds, holdings-array growth, negative tests of the self-checks) and input validation |
-| `mutate.py` | Injects bugs into an engine one at a time (12 into `lifo.py`, or 21 into `lifo_nb.py` with `--nb`) and checks that `test_engine.py` and, with `--exhaustive`, `verify/exhaustive.py` catch each |
+| `mutate.py` | Injects bugs into an engine one at a time (12 into `lifo.py`, or 22 into `lifo_nb.py` with `--nb`) and checks that `test_engine.py` catches each and, with `--exhaustive`, that `verify/exhaustive.py` catches each its scope can reach (bugs that weaken a self-check are left to the negative tests) |
 | `experiments.py` | The micro-benchmarks behind "compile rather than vectorize": the hot paths in plain Python, as a functional fold, through NumPy calls and compiled |
 | `gen.py` | Synthetic laundering networks: hacks, peel chains, exchanges with thousands of deposit addresses, change addresses, internal sweeps |
 | `bench.py` | Scaling benchmark: 14 reclustering operations, each timed against a fresh trace and checked for exact equality; memory; ablations. `--nb` runs the compiled engine against the compiled fresh trace |
@@ -38,11 +38,11 @@ python3 toy.py                              # challenge ledger, all three events
 python3 verify/toy_independent.py           # the same ledger, independent implementation
 python3 test_engine.py 2000 11              # reference engine, 2,000 random ledgers (also seeds 12, 13)
 python3 test_engine.py 2000 11 --nb         # compiled engine in lockstep with the reference
-python3 mutate.py --exhaustive              # 12 bugs in lifo.py, each caught by both harnesses
+python3 mutate.py --exhaustive              # 12 bugs in lifo.py; see results/mutation.log
 python3 mutate.py --exhaustive --nb         # 22 bugs in lifo_nb.py
 python3 verify/smt_checks.py                # Z3 proofs, about 10 s, plus the fidelity check
-python3 verify/exhaustive.py                # reference engine, every case in scope, about 50 min on 2 cores
-python3 verify/exhaustive.py --nb S1        # compiled engine; S2 in parts: --nb S2 0/2, --nb S2 1/2
+python3 verify/exhaustive.py                # reference engine, every case in scope, about 46 min on 2 cores
+python3 verify/exhaustive.py --nb S1        # compiled engine; S2 in parts: --nb S2 0/4 ... --nb S2 3/4
 python3 bench.py 1000000 --nb --mem --ablate --out results/nb_n1000000.json   # compiled
 python3 bench.py 1000000 --mem --ablate --out results/n1000000.json           # reference
 python3 experiments.py                      # compile vs vectorize, on the 1M network
