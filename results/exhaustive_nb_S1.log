@@ -1,7 +1,0 @@
-engine: lifo_nb.Engine (compiled)
-S1: <= 5 transactions, <= 3 wallets, amounts 1-2: 192,286 ledgers, 800,718 (ledger, clustering) cases, 75,587,002 engine states checked (5 settings) - all passed in 1576 s
-TOTAL: 192,286 ledgers, 800,718 clustering cases, 75,587,002 engine states checked; T1, T2, T4, T5, T7 asserted on the specification, every state equal to it
-
-real	26m16.758s
-user	52m6.900s
-sys	0m1.015s
