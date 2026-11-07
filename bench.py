@@ -6,12 +6,15 @@ For one synthetic network of N transactions, builds the engine, then applies a f
 script of reclustering operations.  After every operation it times the incremental
 update, times a fresh trace under the new clustering, and checks that per-transaction
 attribution and per-cluster holdings are identical.  --mem repeats the script with
-tracemalloc to record peak memory per operation (timings come from the untraced run).
+tracemalloc to record the memory the ledger and the engine hold after building, and
+the peak memory of each operation and fresh trace (timings come from the untraced run).
 --ablate repeats the script twice more: routing cache off, and equality cutoff off.
 --nb runs the compiled engine (lifo_nb) against the compiled fresh trace, compares the
 two label arenas in compiled code, and reports compile time separately; tracemalloc
-cannot see memory Numba allocates, so --mem then records the engine's state size
-(arrays and cache) after each operation instead of traced peaks.
+cannot see memory Numba allocates, so --mem then records the exact size of the engine's
+arrays (state and routing cache, headroom included; the ledger's own arrays separately)
+after building and after each operation.  The RSS growth printed with the build time
+is a rough figure for both engines (it depends on the allocator).
 """
 import argparse
 import gc
@@ -210,9 +213,14 @@ def pick_ops(L, eng, meta, seed):
 
 # ------------------------------------------------------------------------ running
 def state_mb(eng):
-    arrays = [v for v in vars(eng).values() if hasattr(v, "nbytes")] + list(vars(eng.A).values())
+    """The compiled engine's own arrays, routing cache included (not the ledger's)."""
+    arrays = [v for v in vars(eng).values() if hasattr(v, "nbytes")]
     cache = [a for e in eng.cache.values() for a in e]
-    return sum(a.nbytes for a in arrays + cache if hasattr(a, "nbytes")) / 2**20
+    return sum(a.nbytes for a in arrays + cache) / 2**20
+
+
+def ledger_arrays_mb(eng):
+    return sum(v.nbytes for v in vars(eng.A).values() if hasattr(v, "nbytes")) / 2**20
 
 
 def run_compiled(L, clusters, ops, mem=False, verify=True, **engine_kw):
@@ -224,6 +232,9 @@ def run_compiled(L, clusters, ops, mem=False, verify=True, **engine_kw):
     build = time.perf_counter() - t0
     gc.collect()
     eng_mb = rss_mb() - r0
+    out = dict(build_s=build, engine_mb=eng_mb)
+    if mem:
+        out.update(build_state_mb=state_mb(eng), ledger_arrays_mb=ledger_arrays_mb(eng))
     eng.reset_stats()
     rows = []
     for name, kind, ws in ops:
@@ -250,7 +261,7 @@ def run_compiled(L, clusters, ops, mem=False, verify=True, **engine_kw):
             assert ok, f"mismatch after {name}"
         del fs, fl, FL, fhold
         rows.append(row)
-    return dict(build_s=build, engine_mb=eng_mb, rows=rows), eng
+    return dict(out, rows=rows), eng
 
 
 def run_script(L, clusters, ops, mem=False, verify=True, compiled=False, **engine_kw):
@@ -258,15 +269,19 @@ def run_script(L, clusters, ops, mem=False, verify=True, compiled=False, **engin
         return run_compiled(L, clusters, ops, mem, verify, **engine_kw)
     gc.collect()
     r0 = rss_mb()
+    if mem:
+        tracemalloc.start()
     t0 = time.perf_counter()
     eng = Engine(L, clusters, **engine_kw)
     build = time.perf_counter() - t0
     gc.collect()
     eng_mb = rss_mb() - r0
+    out = dict(build_s=build, engine_mb=eng_mb)
+    if mem:
+        cur, peak = tracemalloc.get_traced_memory()
+        out.update(build_traced_mb=cur / 2**20, build_peak_mb=peak / 2**20)
     eng.reset_stats()
     rows = []
-    if mem:
-        tracemalloc.start()
     for name, kind, ws in ops:
         gc.collect()
         if mem:
@@ -288,20 +303,20 @@ def run_script(L, clusters, ops, mem=False, verify=True, compiled=False, **engin
             tracemalloc.reset_peak()
             base = tracemalloc.get_traced_memory()[0]
         t0 = time.perf_counter()
-        out, fhold = fresh_trace(L, co)
+        labels, fhold = fresh_trace(L, co)
         row["fresh_s"] = time.perf_counter() - t0
         if mem:
             row["fresh_peak_mb"] = (tracemalloc.get_traced_memory()[1] - base) / 2**20
         if verify:
-            ok = out == eng.labels and all(fhold.get(k, 0) == v for k, v in hold.items()) \
+            ok = labels == eng.labels and all(fhold.get(k, 0) == v for k, v in hold.items()) \
                 and all(hold.get(k, 0) == v for k, v in fhold.items())
             row["exact"] = ok
             assert ok, f"mismatch after {name}"
-        del out, fhold
+        del labels, fhold
         rows.append(row)
     if mem:
         tracemalloc.stop()
-    return dict(build_s=build, engine_mb=eng_mb, rows=rows), eng
+    return dict(out, rows=rows), eng
 
 
 def main():
@@ -331,6 +346,13 @@ def main():
     r0 = rss_mb()
     L = Ledger(src, dst, amt, sources, W)
     ledger_mb = rss_mb() - r0
+    ledger_traced_mb = None
+    if a.mem:  # the same ledger again, under tracemalloc: what its Python lists hold
+        tracemalloc.start()
+        L2 = Ledger(src, dst, amt, sources, W)
+        ledger_traced_mb = tracemalloc.get_traced_memory()[0] / 2**20
+        tracemalloc.stop()
+        del L2
     exw = {ex["hot"] for ex in meta["exchanges"]}
     for ex in meta["exchanges"]:
         exw.update(ex["deposits"])
@@ -361,7 +383,7 @@ def main():
                stolen_carrying_tx=stolen_tx, max_hops=ds[-1], median_hops=ds[len(ds) // 2],
                p90_hops=ds[int(0.9 * len(ds))], stolen_exchange_deposits=len(to_ex),
                exchange_deposits_ge20_hops=sum(1 for d in to_ex if d >= 20),
-               gen_s=gen_s, ledger_mb=ledger_mb)
+               gen_s=gen_s, ledger_mb=ledger_mb, ledger_traced_mb=ledger_traced_mb)
     del eng0, depth, cl
     gc.collect()
     print(json.dumps(net))
@@ -383,6 +405,12 @@ def main():
         del eng
         gc.collect()
         result["mem"] = mres
+        if a.nb:
+            print(f"  mem build: engine arrays {mres['build_state_mb']:.1f} MB, ledger arrays "
+                  f"{mres['ledger_arrays_mb']:.1f} MB")
+        else:
+            print(f"  mem build: ledger {ledger_traced_mb:.1f} MB, engine {mres['build_traced_mb']:.1f} MB "
+                  f"(peak while building {mres['build_peak_mb']:.1f} MB), traced")
         for r in mres["rows"]:
             if a.nb:
                 print(f"  mem {r['op']:<42} engine state after {r['state_mb']:8.1f} MB")

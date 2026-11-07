@@ -39,25 +39,54 @@ Update (Engine.regroup, which merge and split call)
    equals the old one.  If the wave grows past n/4 transactions, finish with one linear
    pass.  Holdings move by the change in stolen units of each changed label.
 """
-from array import array
 from collections import OrderedDict
 from heapq import heappush, heappop
 from itertools import chain
+from numbers import Integral
 
 
 # --------------------------------------------------------------------------- ledger
+def _integer(x, what):
+    """x as a Python int; anything that is not an integer (floats included) is rejected."""
+    if isinstance(x, bool) or not isinstance(x, Integral):
+        raise ValueError(f"{what} must be an integer, got {x!r}")
+    return int(x)
+
+
+def check_wallets(W, wallets):
+    """Wallet ids as Python ints, each in 0..W-1 (no negative indexing)."""
+    out = []
+    for w in wallets:
+        w = _integer(w, "wallet id")
+        if not 0 <= w < W:
+            raise ValueError(f"unknown wallet {w}")
+        out.append(w)
+    return out
+
+
 class Ledger:
     def __init__(self, src, dst, amt, sources, n_wallets, names=None):
         """sources: dict wallet -> label (0 clean, >= 1 stolen).  Every wallet's balance
-        must stay non-negative; then every cluster's does too, under any clustering."""
-        self.src, self.dst, self.amt = src, dst, amt
+        must stay non-negative; then every cluster's does too, under any clustering.
+        Wallet ids, amounts and labels must be integers; they are stored as Python ints."""
+        if not (len(src) == len(dst) == len(amt)):
+            raise ValueError("src, dst and amt must have the same length")
+        self.W = _integer(n_wallets, "n_wallets")
+        self.src = check_wallets(self.W, src)
+        self.dst = check_wallets(self.W, dst)
+        self.amt = [_integer(a, "amount") for a in amt]
+        src, dst, amt = self.src, self.dst, self.amt
         self.n = len(src)
-        self.W = n_wallets
         self.names = names
-        lab = [-1] * n_wallets
+        lab = [-1] * self.W
         for w, l in sources.items():
+            (w,) = check_wallets(self.W, [w])
+            l = _integer(l, "source label")
+            if l < 0:
+                raise ValueError(f"source {w}: label must be >= 0")
             lab[w] = l
         self.source_label = lab
+        n_wallets = self.W
         wev = [[] for _ in range(n_wallets)]
         bal = [0] * n_wallets
         for t in range(self.n):
@@ -95,12 +124,12 @@ def check_partition(L, blocks):
     out = []
     seen = set()
     for b in blocks:
-        m = frozenset(b)
+        m = frozenset(check_wallets(L.W, b))
         if not m:
             continue
         if m & seen:
             raise ValueError("wallet sets overlap")
-        if any(not (0 <= w < L.W) or L.source_label[w] >= 0 for w in m):
+        if any(L.source_label[w] >= 0 for w in m):
             raise ValueError("only non-source wallets can be clustered")
         seen |= m
         out.append(m)
@@ -303,8 +332,8 @@ class Engine:
                 route[t] = p
             readers.update(rd)
         labels = [None] * n
-        stol = array("q", bytes(8 * n))  # stolen units carried by each transaction
-        net = array("q", bytes(8 * L.W))  # stolen received - sent, per wallet
+        stol = [0] * n  # stolen units carried by each transaction (Python ints: no bound)
+        net = [0] * L.W  # stolen received - sent, per wallet
         for t in range(n):
             s = src[t]
             if slab[s] >= 0:
@@ -338,7 +367,7 @@ class Engine:
     def merge(self, wallets):
         """Merge the clusters containing the given wallets."""
         cs = {}
-        for w in wallets:
+        for w in check_wallets(self.L.W, wallets):
             c = self.owner[w]
             if c is None:
                 raise ValueError("only non-source wallets can be clustered")
@@ -348,7 +377,7 @@ class Engine:
 
     def split(self, part):
         """Split the wallets in `part`, which must share one cluster, into their own."""
-        part = frozenset(part)
+        part = frozenset(check_wallets(self.L.W, part))
         if not part:
             return
         if self.owner[next(iter(part))] is None or len({id(self.owner[w]) for w in part}) != 1:

@@ -42,6 +42,9 @@ After every operation the whole engine state must equal the reference for the ex
 clustering (computed by set operations alone): routes, readers, labels, stolen units per
 transaction, net flows, the partition and each cluster's holdings, the owner of every
 wallet, and every cache entry (its routes and readers must equal those of its membership).
+After each engine's run of operations, its own check_against_fresh() must pass and, with
+--nb, its hidden state must be consistent (check_invariants: live-row counters, arena
+bounds and compaction, scratch arrays left clean, cluster ids, holdings).
 """
 import os
 import sys
@@ -330,6 +333,18 @@ def check_exported(E, R, by_members, what):
         raise AssertionError(f"cache accounting ({what})")
 
 
+def check_hidden(E, what):
+    """After a run of operations on one engine: its own self-check against a fresh trace,
+    and for the compiled engine the state export() does not show (live-row counters,
+    arena bounds and compaction, scratch arrays, cluster ids)."""
+    if not E.check_against_fresh():
+        raise AssertionError(f"check_against_fresh ({what})")
+    if COMPILED:
+        bad = E.check_invariants()
+        if bad:
+            raise AssertionError(f"hidden state: {bad} ({what})")
+
+
 def check_ledger(tx):
     src = [s for s, _, _ in tx]
     dst = [d for _, d, _ in tx]
@@ -373,6 +388,7 @@ def check_ledger(tx):
                     E.regroup(P)
                     check_state(E, ref[P], by_members, "undo split")
                     ops += 2
+            check_hidden(E, f"{name}: after the operations from {sorted(map(sorted, P))}")
         E = Engine(L, parts[walk[0]], **cfg)  # every ordered pair of clusterings, once
         if COMPILED and ci % 2:
             E.compact_slack = 0
@@ -380,6 +396,7 @@ def check_ledger(tx):
             E.regroup(parts[i])
             check_state(E, ref[parts[i]], by_members, f"{name}: walk to {sorted(map(sorted, parts[i]))}")
             ops += 1
+        check_hidden(E, f"{name}: after the walk")
     return dict(clusterings=len(parts), ops=ops)
 
 

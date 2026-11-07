@@ -25,16 +25,34 @@ from collections import OrderedDict
 import numpy as np
 from numba import njit
 
-from lifo import Ledger, check_partition, stolen_of  # noqa: F401  (re-exported)
+import math
+
+import lifo
+from lifo import Ledger, check_partition, check_wallets, stolen_of  # noqa: F401  (re-exported)
 
 I64 = np.int64
 
 
 # ------------------------------------------------------------------- the ledger
+VOLUME_LIMIT = 2 ** 62
+
+
+def fits(L):
+    """Whether the compiled engine can hold this ledger exactly in int64.  Every quantity
+    the kernels form (a block, a run, a piece, a stack, a net flow, a holding, or a partial
+    sum of these) is bounded in absolute value by twice the ledger's total volume, so a
+    volume below 2**62 keeps all of them inside int64.  Labels must fit in int64."""
+    return sum(L.amt) < VOLUME_LIMIT and all(l < 2 ** 63 for l in L.source_label)
+
+
 class LedgerArrays:
     """A validated lifo.Ledger as int64 arrays, with per-wallet events in CSR form."""
 
     def __init__(self, L):
+        if not fits(L):
+            raise ValueError("ledger too large for the compiled engine's int64 arithmetic "
+                             "(total volume must be below 2**62 and labels below 2**63); "
+                             "use lifo.Engine, which computes with Python integers")
         self.L = L
         self.n, self.W = L.n, L.W
         self.src = np.asarray(L.src, I64)
@@ -652,6 +670,7 @@ def _fresh(src, dst, amt, slab, co, n_clusters):
     FL = np.empty((n + 16, 2), I64)
     fu = 0
     tmp = np.empty((64, 2), I64)
+    used = np.zeros(n_clusters, np.bool_)  # clusters that ever received an inflow
     for t in range(n):
         s = src[t]; d = dst[t]; a = amt[t]
         cd = co[d]
@@ -696,6 +715,7 @@ def _fresh(src, dst, amt, slab, co, n_clusters):
         fu += k
         if internal:
             continue
+        used[cd] = True
         for i in range(k):                    # push in the same order, coalescing
             h = head[cd]
             if h >= 0 and nl[h] == tmp[i, 0]:
@@ -713,7 +733,7 @@ def _fresh(src, dst, amt, slab, co, n_clusters):
             if nl[x] != 0:
                 hold[c] += na[x]
             x = nx[x]
-    return fs, fl, FL[:fu], hold
+    return fs, fl, FL[:fu], hold, used
 
 
 @njit(cache=True)
@@ -731,22 +751,27 @@ def _labels_differ(ls, ll, LB, fs, fl, FL):
 
 
 def fresh_trace_arrays(A, co_ids, n_clusters):
-    """Compiled fresh trace on ledger arrays; co_ids: wallet -> cluster id (int64)."""
-    return _fresh(A.src, A.dst, A.amt, A.slab, co_ids, n_clusters)
+    """Compiled fresh trace on ledger arrays; co_ids: wallet -> cluster id (int64).
+    Returns the labels in CSR form and the holdings per cluster id."""
+    fs, fl, FL, hold, _ = _fresh(A.src, A.dst, A.amt, A.slab, co_ids, n_clusters)
+    return fs, fl, FL, hold
 
 
-def fresh_trace(L, cluster_of, A=None):
-    """Same interface and results as lifo.fresh_trace (order='preserve')."""
+def fresh_trace(L, cluster_of, order="preserve", A=None):
+    """Same interface and results as lifo.fresh_trace.  Any hashable cluster key works,
+    None included; the reversed push order exists only in the reference, which it uses."""
+    if order != "preserve":
+        return lifo.fresh_trace(L, cluster_of, order)
     A = A or LedgerArrays(L)
     keys = {}
     co = np.full(L.W, -1, I64)
-    for w, c in enumerate(cluster_of):
-        if c is not None:
-            co[w] = keys.setdefault(c, len(keys))
-    fs, fl, FL, hold = _fresh(A.src, A.dst, A.amt, A.slab, co, max(1, len(keys)))
+    for w in range(L.W):
+        if L.source_label[w] < 0:
+            co[w] = keys.setdefault(cluster_of[w], len(keys))
+    fs, fl, FL, hold, used = _fresh(A.src, A.dst, A.amt, A.slab, co, max(1, len(keys)))
     flat = FL.ravel().tolist()
     out = [tuple(flat[2 * fs[t]:2 * (fs[t] + fl[t])]) for t in range(L.n)]
-    return out, {c: int(hold[i]) for c, i in keys.items()}
+    return out, {c: int(hold[i]) for c, i in keys.items() if used[i]}
 
 
 # ------------------------------------------------------------------- the engine
@@ -769,6 +794,8 @@ class _RunsView:
         return self.e.L.n
 
     def __getitem__(self, t):
+        if isinstance(t, slice):
+            return [self[i] for i in range(*t.indices(len(self)))]
         e = self.e
         if self.which == "labels":
             return tuple(e.LB[e.ls[t]:e.ls[t] + e.ll[t]].ravel().tolist())
@@ -805,6 +832,11 @@ class Engine:
         self.sweep_after = n // 4 if sweep_after is None else sweep_after
         self.cache_budget = n if cache_budget is None else cache_budget
         self.cutoff = cutoff
+        # The reference switches to the linear pass when `relabeled > sweep_after`; at most
+        # n recomputations happen, so any threshold of n or more means never, and the
+        # comparison against an integer count only sees floor(sweep_after).
+        sa = self.sweep_after
+        self._limit = n if not sa < n else max(-1, math.floor(sa))
         self.cache = OrderedDict()
         self.cache_entries = 0
         self.stats = self._zero()
@@ -848,7 +880,7 @@ class Engine:
     def merge(self, wallets):
         """Merge the clusters containing the given wallets."""
         cs = {}  # in wallet order, as lifo.Engine.merge, so the cache order matches too
-        for w in wallets:
+        for w in check_wallets(self.L.W, wallets):
             c = int(self.owner[w])
             if c < 0:
                 raise ValueError("only non-source wallets can be clustered")
@@ -858,12 +890,10 @@ class Engine:
 
     def split(self, part):
         """Split the wallets in `part`, which must share one cluster, into their own."""
-        part = frozenset(part)
+        part = frozenset(check_wallets(self.L.W, part))
         if not part:
             return
-        w0 = next(iter(part))
-        if not (0 <= w0 < self.L.W) or self.owner[w0] < 0 or \
-                len({int(self.owner[w]) for w in part}) != 1:
+        if self.owner[next(iter(part))] < 0 or len({int(self.owner[w]) for w in part}) != 1:
             raise ValueError("split part must lie inside one cluster")
         self.regroup([part])
 
@@ -956,7 +986,7 @@ class Engine:
         (self.LB, self.lu, self.buf, relabeled, changed, linear, dlive) = _propagate(
             seeds, self.rs, self.rl, self.P, self.ls, self.ll, self.LB, self.lu, self.ds,
             self.dl, self.RD, self.stol, self.net, self.owner, self.hold, self.A.src,
-            self.A.dst, self.seen, self.sweep_after, self.cutoff, self.buf)
+            self.A.dst, self.seen, self._limit, bool(self.cutoff), self.buf)
         self.live_l += dlive
         self.stats["relabeled"] += int(relabeled)
         self.stats["label_changed"] += int(changed)
@@ -989,7 +1019,13 @@ class Engine:
         return {t: RD[s:s + c] for t, (s, c) in enumerate(zip(self.ds.tolist(), self.dl.tolist())) if c}
 
     def clusters(self):
-        return [ClusterView(m, int(self.hold[c])) for c, m in self.members.items()]
+        """The clusters in order of their first wallet, as lifo.Engine.clusters() lists
+        them.  Each ClusterView is a snapshot: its holdings do not follow later updates."""
+        ids = self.owner[self.A.wallets]
+        if not ids.shape[0]:
+            return []
+        _, first = np.unique(ids, return_index=True)
+        return [ClusterView(self.members[c], int(self.hold[c])) for c in ids[np.sort(first)].tolist()]
 
     def cluster_of(self):
         """wallet -> cluster key (smallest member), and stolen holdings by key."""
@@ -999,11 +1035,52 @@ class Engine:
 
     def check_against_fresh(self):
         """Compare with the compiled fresh trace of the current clustering."""
-        fs, fl, FL, hold = _fresh(self.A.src, self.A.dst, self.A.amt, self.A.slab,
-                                  self.owner, self.hold.shape[0])
+        fs, fl, FL, hold = fresh_trace_arrays(self.A, self.owner, self.hold.shape[0])
         if _labels_differ(self.ls, self.ll, self.LB, fs, fl, FL) >= 0:
             return False
         return all(int(hold[c]) == int(self.hold[c]) for c in self.members)
+
+    def check_invariants(self):
+        """State that export() does not show, checked for the test harnesses: live-row
+        counters, arena bounds, scratch arrays left clean, cluster ids and ownership.
+        Returns a list of problems (empty when all hold)."""
+        bad = []
+        for name, (S, N, used, live) in {
+                "routes": (self.rs, self.rl, self.pu, self.live_p),
+                "labels": (self.ls, self.ll, self.lu, self.live_l),
+                "readers": (self.ds, self.dl, self.ru, self.live_r)}.items():
+            if int(N.sum()) != live:
+                bad.append(f"{name}: live counter {live} != {int(N.sum())}")
+            nz = N > 0
+            if nz.any() and int((S[nz] + N[nz]).max()) > used:
+                bad.append(f"{name}: a row lies beyond the used part of the arena")
+        if self.pu > self.P.shape[0] or self.lu > self.LB.shape[0] or self.ru > self.RD.shape[0]:
+            bad.append("an arena's used part exceeds its capacity")
+        k = self.compact_slack  # after every operation, as _compact_if_needed leaves them
+        if self.pu > 2 * self.live_p + k or self.lu > 2 * self.live_l + k or \
+                self.ru > 2 * self.live_r + k:
+            bad.append("an arena holds more dead rows than the compaction threshold allows")
+        if self.mask.any() or self.mark.any() or self.seen.any() or self.cmark.any() \
+                or (self.slot != -1).any():
+            bad.append("a scratch array was left dirty")
+        if set(self.free) & set(self.members) or len(set(self.free)) != len(self.free):
+            bad.append("cluster id bookkeeping")
+        if self.members and max(self.members) >= self.hold.shape[0]:
+            bad.append("holdings array too small")
+        ws = self.A.wallets
+        if (self.owner[self.A.slab >= 0] != -1).any():
+            bad.append("a source has an owner")
+        seen = set()
+        net = self.net.tolist()
+        for c, m in self.members.items():
+            if seen & m or any(int(self.owner[w]) != c for w in m):
+                bad.append(f"cluster {c}: members and owners disagree")
+            if int(self.hold[c]) != sum(net[w] for w in m):
+                bad.append(f"cluster {c}: holdings are not the members' net flows")
+            seen |= m
+        if seen != set(ws.tolist()):
+            bad.append("clusters do not partition the wallets")
+        return bad
 
     def export(self):
         """The whole state in the reference engine's Python form, for verification."""

@@ -3,12 +3,18 @@ harnesses catch every one.
 
 python3 mutate.py [--exhaustive] [--nb]
 
-Default: 11 bugs in lifo.py, each must be caught by test_engine.py (and, with
---exhaustive, by verify/exhaustive.py on its quick scopes).  --nb: 15 bugs in the
-compiled engine lifo_nb.py instead, the same 11 kinds plus four in code it alone has
-(the one-pass build, arena compaction, the heap's seen marks, the compiled fresh trace).
+Default: 12 bugs in lifo.py, each must be caught by test_engine.py (300 random ledgers
+with seed 3, then its targeted and validation tests) and, with --exhaustive, by
+verify/exhaustive.py on its quick scopes (at most 4 transactions).  --nb: 21 bugs in the
+compiled engine lifo_nb.py instead: the same 12 kinds plus nine in code it alone has
+(the one-pass build, arena compaction and its live-row counters, the heap's seen marks,
+the compiled fresh trace and label comparison, the holdings array's growth).
+Mutants marked "self-check" weaken a check the harnesses call rather than the engine's
+results, so only test_engine.py's negative tests (which corrupt a label or holding on
+purpose) can catch them; the exhaustive pass skips them.  The holdings array grows only
+past 16 cluster ids, which the exhaustive scopes (at most 4 wallets) never reach.
 Popping the top units on an internal read and pushing them straight back is not among
-them: by Theorem 3 that is an equivalent mutant, and no test can or should catch it.
+the mutants: by Theorem 3 that is an equivalent mutant, and no test can or should catch it.
 """
 import importlib
 import os
@@ -31,6 +37,8 @@ MUTS_PY = [
     ("linear pass skipped", "                    t = heap[0] - 1", "                    t = L.n"),
     ("remainder dropped", "            if rest:\n                new.append(rest)", "            pass"),
     ("cached cluster's readers kept", "            else:\n                rd = entry[1]", "            else:\n                rd = {}"),
+    ("self-check: ignores holdings", "        return out == self.labels and \\\n            {k: v for k, v in hold.items() if v} == {k: v for k, v in fhold.items() if v}",
+     "        return out == self.labels"),
 ]
 
 MUTS_NB = [
@@ -54,6 +62,12 @@ MUTS_NB = [
     # (popping on an internal read and pushing straight back is an equivalent mutant,
     #  Theorem 3; reversing the push order is not)
     ("compiled fresh trace pushes reversed", "        for i in range(k):                    # push in the same order, coalescing", "        for i in range(k - 1, -1, -1):"),
+    ("live reader count not decremented", "            self.live_r -= int(_drop_readers(keys, self.dl))", "            _drop_readers(keys, self.dl)"),
+    ("live piece count not updated", "            self.live_p += dlive", "            pass"),
+    ("compaction never runs", "        if self.pu > 2 * self.live_p + k:", "        if False:"),
+    ("holdings array growth off by one", "        if c >= self.hold.shape[0]:", "        if c > self.hold.shape[0]:"),
+    ("self-check: label units ignored", "            if LB[a + i, 0] != FL[b + i, 0] or LB[a + i, 1] != FL[b + i, 1]:", "            if LB[a + i, 0] != FL[b + i, 0]:"),
+    ("self-check: ignores holdings", "        return all(int(hold[c]) == int(self.hold[c]) for c in self.members)", "        return True"),
 ]
 
 
@@ -88,6 +102,7 @@ def main():
         T = importlib.reload(T0)
         try:
             T.run(300, 3, compiled=COMPILED)
+            T.targeted(3, compiled=COMPILED)
             T.validation()
             print(f"{label:<38} NOT caught")
         except Exception as e:
@@ -103,7 +118,12 @@ def main():
         import exhaustive as X0
         small = X0.scope("S1", True)[1] + X0.scope("S2", True)[1]
         caught = 0
+        tried = 0
         for label, change in muts:
+            if label.startswith("self-check"):
+                print(f"{label:<38} skipped (a self-check; see test_engine.py's negative tests)")
+                continue
+            tried += 1
             load(name, mutant(src, change))
             X = importlib.reload(X0)
             err = None
@@ -114,8 +134,9 @@ def main():
                     err = f"{type(e).__name__}: {str(e)[:50]}"
                     break
             caught += err is not None
-            print(f"{label:<38} {'caught: ' + err if err else 'NOT caught'}")
-        print(f"{caught}/{len(muts)} injected bugs caught by verify/exhaustive.py")
+            note = " (needs more than 16 cluster ids, beyond the scope)" if "growth" in label else ""
+            print(f"{label:<38} {'caught: ' + err if err else 'NOT caught' + note}")
+        print(f"{caught}/{tried} injected bugs caught by verify/exhaustive.py")
 
 
 if __name__ == "__main__":
