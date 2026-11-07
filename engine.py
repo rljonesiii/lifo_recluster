@@ -3,10 +3,13 @@ the ledger fits its int64 arithmetic, otherwise the pure-Python reference lifo.E
 Both have the same interface and results.
 
     from engine import Engine, Ledger, COMPILED
-    eng = Engine(L, clusters)
+    eng = Engine(L, clusters)          # an instance of lifo_nb.Engine or lifo.Engine
+    isinstance(eng, Engine)            # True for either
 """
+from abc import ABC
+
 import lifo
-from lifo import Ledger, stolen_of, fresh_trace  # noqa: F401
+from lifo import Ledger, stolen_of  # noqa: F401
 
 try:
     import lifo_nb
@@ -16,9 +19,24 @@ except ImportError:  # no NumPy/Numba: everything runs on the reference
     COMPILED = False
 
 
-def Engine(L, clusters=(), **kw):
-    """A compiled engine when possible, else the reference (for example for a ledger whose
-    total volume exceeds 2**62, such as large wei amounts)."""
-    if COMPILED and lifo_nb.fits(L):
-        return lifo_nb.Engine(L, clusters, **kw)
-    return lifo.Engine(L, clusters, **kw)
+def _compiled(L):
+    return COMPILED and lifo_nb.fits(L)
+
+
+class Engine(ABC):
+    """Engine(L, clusters=(), sweep_after=None, cache_budget=None, cutoff=True) returns a
+    compiled engine when possible, else the reference (for example for a ledger whose
+    total volume reaches 2**62, such as large wei amounts)."""
+
+    def __new__(cls, L, *args, **kw):
+        return (lifo_nb.Engine if _compiled(L) else lifo.Engine)(L, *args, **kw)
+
+
+Engine.register(lifo.Engine)
+if COMPILED:
+    Engine.register(lifo_nb.Engine)
+
+
+def fresh_trace(L, cluster_of, order="preserve"):
+    """A fresh trace, compiled when possible; same results either way."""
+    return (lifo_nb.fresh_trace if _compiled(L) else lifo.fresh_trace)(L, cluster_of, order)

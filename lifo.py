@@ -42,7 +42,7 @@ Update (Engine.regroup, which merge and split call)
 from collections import OrderedDict
 from heapq import heappush, heappop
 from itertools import chain
-from numbers import Integral
+from numbers import Integral, Real
 
 
 # --------------------------------------------------------------------------- ledger
@@ -72,6 +72,8 @@ class Ledger:
         if not (len(src) == len(dst) == len(amt)):
             raise ValueError("src, dst and amt must have the same length")
         self.W = _integer(n_wallets, "n_wallets")
+        if self.W < 0:
+            raise ValueError("n_wallets must be >= 0")
         self.src = check_wallets(self.W, src)
         self.dst = check_wallets(self.W, dst)
         self.amt = [_integer(a, "amount") for a in amt]
@@ -117,6 +119,13 @@ def stolen_of(runs):
         if runs[i]:
             tot += runs[i + 1]
     return tot
+
+
+def check_threshold(x):
+    """The linear-pass threshold: any real number (inf and nan included; nan never fires)."""
+    if isinstance(x, bool) or not isinstance(x, Real):
+        raise ValueError(f"sweep_after must be a number, got {x!r}")
+    return x
 
 
 def check_partition(L, blocks):
@@ -314,7 +323,7 @@ class Engine:
         (default n).  cutoff=False disables the equality cutoff (for ablation only)."""
         self.L = L
         n = L.n
-        self.sweep_after = n // 4 if sweep_after is None else sweep_after
+        self.sweep_after = n // 4 if sweep_after is None else check_threshold(sweep_after)
         self.cache_budget = n if cache_budget is None else cache_budget
         self.cutoff = cutoff
         self.cache = OrderedDict()

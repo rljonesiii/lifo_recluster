@@ -84,13 +84,14 @@ import sys  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import lifo  # noqa: E402
 import toy  # noqa: E402
-from engine import Engine  # noqa: E402
+from engine import COMPILED  # noqa: E402
 
 L = toy.ledger()
 I = toy.IDX
 engines = [lifo.Engine(L)]
-if Engine is not lifo.Engine:
-    engines.append(Engine(L))
+if COMPILED:
+    import lifo_nb  # noqa: E402
+    engines.append(lifo_nb.Engine(L))
 ok = True
 for k, (name, groups) in enumerate(CASES):
     if k == 1:

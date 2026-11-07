@@ -15,8 +15,9 @@ cache in LRU order) and on the work counters, and the compiled engine's hidden s
 consistent.  Its arena compaction threshold rotates through the default 4096, 0 and 64.
 Then targeted tests: amounts near the compiled engine's int64 bound and labels near
 2**63 (and amounts far beyond int64 for the reference), ledgers past the bound (refused
-by the compiled engine, run on the reference through engine.Engine), out-of-range
-linear-pass thresholds, holdings-array growth, and checks that the self-checks
+by the compiled engine, run on the reference through engine.Engine), linear-pass
+thresholds of every kind (also changed between operations), a compaction slack lowered
+between operations, holdings-array growth, and checks that the self-checks
 (check_against_fresh, check_invariants) notice a corrupted label or holding.
 
 Usage: python3 test_engine.py [n_cases] [seed] [--nb]
@@ -120,12 +121,11 @@ def check(eng, L, where, units=False):
         h = zlib.crc32(where.encode())
         a, b = sorted((h % (L.n + 1), (h >> 12) % (L.n + 1)))
         assert eng.labels[a:b] == out[a:b] and eng.labels[::-3] == out[::-3], f"label slice {where}"
-        assert eng.route[a:b] == list(lifo.Engine(L, [c.members for c in eng.clusters()]).route[a:b]) \
-            if h % 7 == 0 else True, f"route slice {where}"
-        if h % 3 == 0:  # some of the time: other cluster keys (None among them), reversed order
+        routes = [eng.route[t] for t in range(L.n)]
+        assert eng.route[a:b] == routes[a:b] and eng.route[::-2] == routes[::-2], f"route slice {where}"
+        if h % 3 == 0:  # some of the time: other cluster keys, None among them
             co2 = [None if c is not None and c % 2 else c for c in co]
             assert lifo_nb.fresh_trace(L, co2) == fresh_trace(L, co2), f"None keys {where}"
-            assert lifo_nb.fresh_trace(L, co, "reverse") == fresh_trace(L, co, "reverse")
     if units:
         uout, uhold = unit_trace(L, co)
         assert uout == out and nz(uhold) == nz(fhold), f"fresh_trace differs from unit tracer {where}"
@@ -155,6 +155,8 @@ def lockstep(eng, twin, where):
     a, b = state_of(eng), state_of(twin)
     for k in a:
         assert a[k] == b[k], f"compiled engine differs from lifo.Engine in {k} {where}"
+    assert [c.members for c in eng.clusters()] == [c.members for c in twin.clusters()], \
+        f"clusters() lists the clusters in another order {where}"
     bad = eng.check_invariants()
     assert not bad, f"compiled engine's hidden state: {bad} {where}"
     s = dict(eng.stats)
@@ -259,21 +261,38 @@ def targeted(seed=1, compiled=False):
     # past the bound: the compiled engine refuses the ledger and engine.Engine falls back
     L0 = random_ledger(rng, 8, 200, n_labels=3, max_amt=9)
     for L in (scaled(L0, 2 ** 62 // sum(L0.amt) + 1), scaled(L0, 1, {1: 2 ** 63})):
+        init = random_partition(rng, L.wallets())
         if compiled:
             import lifo_nb
             expect_error(lambda: lifo_nb.Engine(L), "a ledger past the int64 bound (compiled)")
-        eng = factory.Engine(L, random_partition(rng, L.wallets()))
-        assert type(eng) is lifo.Engine, "engine.Engine did not fall back to the reference"
-        assert eng.check_against_fresh()
+            co = lifo.Engine(L, init).cluster_of()[0]
+            assert lifo_nb.fresh_trace(L, co) == fresh_trace(L, co), "compiled fresh_trace past the bound"
+        eng = factory.Engine(L, init)
+        assert type(eng).__module__ == "lifo", "engine.Engine did not fall back to the reference"
+        assert isinstance(eng, factory.Engine) and eng.check_against_fresh()
         ops += operate(rng, eng, None, L, "past the bound", False, 6)
     if compiled:
-        assert type(factory.Engine(L0)) is Engine, "engine.Engine did not pick the compiled engine"
-    # linear-pass thresholds outside the usual range behave as in the reference
+        e0 = factory.Engine(L0)
+        assert type(e0).__module__ == "lifo_nb" and isinstance(e0, factory.Engine), \
+            "engine.Engine did not pick the compiled engine"
+    # linear-pass thresholds of every kind, at build and changed later, as in the reference
     L = random_ledger(rng, 10, 400, n_labels=3, max_amt=9)
-    for sa in (10 ** 30, math.inf, math.nan, -5, 2.5, L.n, L.n - 1):
+    for sa in (10 ** 30, math.inf, math.nan, -math.inf, -5, -0.5, 0, 0.5, 1, 2.5, 3):
         init = random_partition(rng, L.wallets())
         eng, twin = Engine(L, init, sweep_after=sa), twin_of(L, init, sweep_after=sa)
-        ops += operate(rng, eng, twin, L, f"sweep_after={sa}", True, 5)
+        ops += operate(rng, eng, twin, L, f"sweep_after={sa}", True, 3)
+        eng.sweep_after = 10 ** 9 if sa != sa or sa > 3 else 0
+        if twin:
+            twin.sweep_after = eng.sweep_after
+        ops += operate(rng, eng, twin, L, f"sweep_after={sa}, then {eng.sweep_after}", True, 3)
+    # lowering the compaction slack between operations is legal, and is honoured next time
+    if compiled:
+        init = random_partition(rng, L.wallets(), 0.5)
+        eng, twin = Engine(L, init, cache_budget=0), twin_of(L, init, cache_budget=0)
+        ops += operate(rng, eng, twin, L, "slack 4096", True, 10)
+        eng.compact_slack = 0
+        assert not eng.check_invariants(), "check_invariants flagged a legal state after the slack fell"
+        ops += operate(rng, eng, twin, L, "slack 0", True, 4)
     # holdings array growth: one cluster of 80 wallets split into singletons, merged back
     L = random_ledger(rng, 80, 600, n_labels=2, max_amt=9)
     ws = L.wallets()
@@ -336,16 +355,25 @@ def validation():
         expect_error(lambda: Engine(L, bad), f"clusters {bad}")
     eng = Engine(L, [[2, 3, 4]])
     before = list(eng.labels)
-    for bad in ([[2, 3], [3, 4]], [[2], [0, 3]], [[2, -1]], [[7, 2.5]], [[True, 3]]):
+    for bad in ([[2, 3], [3, 4]], [[2], [0, 3]], [[2, -1]], [[7, 2.5]]):
         expect_error(lambda: eng.regroup(bad), f"blocks {bad}")
     for bad in ([2, 5], [0], [-1], [99], [2.0], [3, 4.5]):
         expect_error(lambda: eng.split(bad), f"split {bad}")
     for bad in ([0, 2], [-1, 2], [2, 99], [2.0, 5], [5, None]):
         expect_error(lambda: eng.merge(bad), f"merge {bad}")
+    for bad in ("4", True, [3]):  # None means the default, n // 4
+        expect_error(lambda: Engine(L, sweep_after=bad), f"sweep_after={bad!r}")
     eng.split([])
     eng.merge([2])
     assert eng.labels == before
     assert sorted(sorted(c.members) for c in eng.clusters() if len(c.members) > 1) == [[2, 3, 4]]
+    # a bool is not a wallet id, even where it would name an ordinary wallet (True == 1)
+    Lb = Ledger([0, 0], [1, 2], [5, 5], {0: 1}, 3)
+    expect_error(lambda: Engine(Lb, [[True, 2]]), "a bool wallet id in clusters")
+    eb = Engine(Lb)
+    for f in (lambda: eb.merge([True, 2]), lambda: eb.split([True]), lambda: eb.regroup([[True, 2]])):
+        expect_error(f, "a bool wallet id")
+    assert len(eb.clusters()) == 2
     # ledgers: overdrafts, non-integers (floats, bools), out-of-range ids, bad labels
     for args, what in ((([2], [3], [5], {0: 1}, 4), "an overdraft"),
                        (([0], [3], [2.5], {0: 1}, 4), "a fractional amount"),
@@ -357,7 +385,8 @@ def validation():
                        (([0], [3], [2], {0: 0.5}, 4), "a fractional label"),
                        (([0], [3], [2], {0: -1}, 4), "a negative label"),
                        (([0], [3, 2], [2], {0: 1}, 4), "columns of different lengths"),
-                       (([0], [3], [0], {0: 1}, 4), "a zero amount")):
+                       (([0], [3], [0], {0: 1}, 4), "a zero amount"),
+                       (([], [], [], {}, -3), "a negative n_wallets")):
         expect_error(lambda: Ledger(*args), f"a ledger with {what}")
     try:
         import numpy as np

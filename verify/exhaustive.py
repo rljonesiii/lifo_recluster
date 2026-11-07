@@ -373,21 +373,20 @@ def check_ledger(tx):
                 check_state(E, ref[P], by_members, f"{name}: undo regroup {sorted(B)}")
                 ops += 2
             ops += 1
-            if name != "defaults":
-                continue
-            for C1, C2 in combinations(sorted(P, key=sorted), 2):
-                E.merge([min(C1), min(C2)])
-                check_state(E, ref[apply_regroup(P, [C1 | C2])], by_members, f"merge {sorted(C1)} {sorted(C2)}")
-                E.regroup(P)
-                check_state(E, ref[P], by_members, "undo merge")
-                ops += 2
-            for C in P:
-                for S in subsets(sorted(C))[:-1]:  # nonempty proper subsets
-                    E.split(S)
-                    check_state(E, ref[apply_regroup(P, [S])], by_members, f"split {sorted(S)} from {sorted(C)}")
+            if name == "defaults":
+                for C1, C2 in combinations(sorted(P, key=sorted), 2):
+                    E.merge([min(C1), min(C2)])
+                    check_state(E, ref[apply_regroup(P, [C1 | C2])], by_members, f"merge {sorted(C1)} {sorted(C2)}")
                     E.regroup(P)
-                    check_state(E, ref[P], by_members, "undo split")
+                    check_state(E, ref[P], by_members, "undo merge")
                     ops += 2
+                for C in P:
+                    for S in subsets(sorted(C))[:-1]:  # nonempty proper subsets
+                        E.split(S)
+                        check_state(E, ref[apply_regroup(P, [S])], by_members, f"split {sorted(S)} from {sorted(C)}")
+                        E.regroup(P)
+                        check_state(E, ref[P], by_members, "undo split")
+                        ops += 2
             check_hidden(E, f"{name}: after the operations from {sorted(map(sorted, P))}")
         E = Engine(L, parts[walk[0]], **cfg)  # every ordered pair of clusterings, once
         if COMPILED and ci % 2:

@@ -28,7 +28,7 @@ from numba import njit
 import math
 
 import lifo
-from lifo import Ledger, check_partition, check_wallets, stolen_of  # noqa: F401  (re-exported)
+from lifo import Ledger, check_partition, check_threshold, check_wallets, stolen_of  # noqa: F401  (re-exported)
 
 I64 = np.int64
 
@@ -757,10 +757,11 @@ def fresh_trace_arrays(A, co_ids, n_clusters):
     return fs, fl, FL, hold
 
 
-def fresh_trace(L, cluster_of, order="preserve", A=None):
+def fresh_trace(L, cluster_of, order="preserve", *, A=None):
     """Same interface and results as lifo.fresh_trace.  Any hashable cluster key works,
-    None included; the reversed push order exists only in the reference, which it uses."""
-    if order != "preserve":
+    None included.  The reversed push order, and ledgers too large for int64, go to the
+    reference tracer."""
+    if order != "preserve" or (A is None and not fits(L)):
         return lifo.fresh_trace(L, cluster_of, order)
     A = A or LedgerArrays(L)
     keys = {}
@@ -832,11 +833,6 @@ class Engine:
         self.sweep_after = n // 4 if sweep_after is None else sweep_after
         self.cache_budget = n if cache_budget is None else cache_budget
         self.cutoff = cutoff
-        # The reference switches to the linear pass when `relabeled > sweep_after`; at most
-        # n recomputations happen, so any threshold of n or more means never, and the
-        # comparison against an integer count only sees floor(sweep_after).
-        sa = self.sweep_after
-        self._limit = n if not sa < n else max(-1, math.floor(sa))
         self.cache = OrderedDict()
         self.cache_entries = 0
         self.stats = self._zero()
@@ -866,6 +862,32 @@ class Engine:
         self.mark = np.zeros(n, np.bool_)    # scratch for _events, left all False
         self.slot = np.full(n, -1, I64)      # scratch for _invert, left all -1
         self.cmark = np.zeros(L.W + 1, np.bool_)  # scratch for _owners, left all False
+
+    @property
+    def sweep_after(self):
+        return self._sweep_after
+
+    @sweep_after.setter
+    def sweep_after(self, sa):
+        # The reference switches to the linear pass when `relabeled > sweep_after`, read at
+        # every update.  At most n recomputations happen, so a threshold of n or more (or
+        # nan) means never, one below 0 means at once, and an integer count compared with
+        # a fraction only sees floor(sweep_after).
+        sa = check_threshold(sa)
+        n = self.L.n
+        self._sweep_after = sa
+        self._limit = n if not sa < n else (-1 if sa < 0 else math.floor(sa))
+
+    @property
+    def compact_slack(self):
+        return self._slack
+
+    @compact_slack.setter
+    def compact_slack(self, k):
+        # what check_invariants holds the arenas to: the strictest slack in force since
+        # the last compaction check, so lowering it never flags a state that was legal
+        self._slack = k
+        self._slack_checked = max(getattr(self, "_slack_checked", k), k)
 
     @staticmethod
     def _zero():
@@ -993,7 +1015,7 @@ class Engine:
         self.stats["linear_pass"] += int(linear)
 
     def _compact_if_needed(self):
-        k = self.compact_slack
+        k = self._slack_checked = self.compact_slack
         if self.pu > 2 * self.live_p + k:
             self.P, self.pu = _compact2(self.rs, self.rl, self.P)
             self.stats["compactions"] += 1
@@ -1042,7 +1064,8 @@ class Engine:
 
     def check_invariants(self):
         """State that export() does not show, checked for the test harnesses: live-row
-        counters, arena bounds, scratch arrays left clean, cluster ids and ownership.
+        counters, arena bounds and compaction (against the slack in force at the last
+        operation), scratch arrays left clean, cluster ids, ownership and holdings.
         Returns a list of problems (empty when all hold)."""
         bad = []
         for name, (S, N, used, live) in {
@@ -1056,7 +1079,7 @@ class Engine:
                 bad.append(f"{name}: a row lies beyond the used part of the arena")
         if self.pu > self.P.shape[0] or self.lu > self.LB.shape[0] or self.ru > self.RD.shape[0]:
             bad.append("an arena's used part exceeds its capacity")
-        k = self.compact_slack  # after every operation, as _compact_if_needed leaves them
+        k = self._slack_checked  # the slack the last operation compacted to (or a larger one set since)
         if self.pu > 2 * self.live_p + k or self.lu > 2 * self.live_l + k or \
                 self.ru > 2 * self.live_r + k:
             bad.append("an arena holds more dead rows than the compaction threshold allows")

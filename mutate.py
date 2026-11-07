@@ -5,10 +5,11 @@ python3 mutate.py [--exhaustive] [--nb]
 
 Default: 12 bugs in lifo.py, each must be caught by test_engine.py (300 random ledgers
 with seed 3, then its targeted and validation tests) and, with --exhaustive, by
-verify/exhaustive.py on its quick scopes (at most 4 transactions).  --nb: 21 bugs in the
-compiled engine lifo_nb.py instead: the same 12 kinds plus nine in code it alone has
+verify/exhaustive.py on its quick scopes (at most 4 transactions).  --nb: 22 bugs in the
+compiled engine lifo_nb.py instead: the same 12 kinds plus ten in code it alone has
 (the one-pass build, arena compaction and its live-row counters, the heap's seen marks,
-the compiled fresh trace and label comparison, the holdings array's growth).
+the compiled fresh trace and label comparison, the holdings array's growth, the order
+in which clusters() lists the clusters).
 Mutants marked "self-check" weaken a check the harnesses call rather than the engine's
 results, so only test_engine.py's negative tests (which corrupt a label or holding on
 purpose) can catch them; the exhaustive pass skips them.  The holdings array grows only
@@ -57,7 +58,8 @@ MUTS_NB = [
          "            entry = self.cache.get(m)\n            hit = entry is not None\n            if entry is None:  # the outgoing"),
         ("            keys = entry[3]\n", "            keys = entry[3][:0] if hit else entry[3]\n")]),
     ("build: multi-block pop keeps blocks", "                if not internal:\n                    head[cs] = x", "                if False:\n                    head[cs] = x"),
-    ("compaction drops a row", "            B[pos:pos + c] = A[starts[t]:starts[t] + c]", "            B[pos:pos + c - 1] = A[starts[t]:starts[t] + c - 1]"),
+    ("compaction drops a row", "    B = np.empty((total + 16, A.shape[1]), A.dtype)\n    pos = 0\n    for t in range(lens.shape[0]):\n        c = lens[t]\n        if c:\n            B[pos:pos + c] = A[starts[t]:starts[t] + c]",
+     "    B = np.empty((total + 16, A.shape[1]), A.dtype)\n    pos = 0\n    for t in range(lens.shape[0]):\n        c = lens[t]\n        if c:\n            B[pos:pos + c - 1] = A[starts[t]:starts[t] + c - 1]"),
     ("seen marks not cleared", "    for i in range(pn):\n        seen[pushed[i]] = False", "    for i in range(0):\n        seen[pushed[i]] = False"),
     # (popping on an internal read and pushing straight back is an equivalent mutant,
     #  Theorem 3; reversing the push order is not)
@@ -66,6 +68,7 @@ MUTS_NB = [
     ("live piece count not updated", "            self.live_p += dlive", "            pass"),
     ("compaction never runs", "        if self.pu > 2 * self.live_p + k:", "        if False:"),
     ("holdings array growth off by one", "        if c >= self.hold.shape[0]:", "        if c > self.hold.shape[0]:"),
+    ("clusters() in another order", "for c in ids[np.sort(first)].tolist()]", "for c in self.members]"),
     ("self-check: label units ignored", "            if LB[a + i, 0] != FL[b + i, 0] or LB[a + i, 1] != FL[b + i, 1]:", "            if LB[a + i, 0] != FL[b + i, 0]:"),
     ("self-check: ignores holdings", "        return all(int(hold[c]) == int(self.hold[c]) for c in self.members)", "        return True"),
 ]
@@ -73,7 +76,7 @@ MUTS_NB = [
 
 def mutant(src, change):
     for a, b in ([change] if isinstance(change, tuple) else change):
-        assert a in src, a
+        assert src.count(a) == 1, a  # each anchor names exactly one place
         src = src.replace(a, b)
     return src
 
@@ -95,10 +98,12 @@ def main():
         src = src.replace("@njit(cache=True)", "@njit(boundscheck=True)")
     muts = [(m[0], (m[1], m[2]) if len(m) == 3 else m[1]) for m in (MUTS_NB if COMPILED else MUTS_PY)]
     original = importlib.import_module(name)
+    import engine as F0
     import test_engine as T0
     caught = 0
     for label, change in muts:
         load(name, mutant(src, change))
+        importlib.reload(F0)  # engine.py must pick up the mutant too
         T = importlib.reload(T0)
         try:
             T.run(300, 3, compiled=COMPILED)
@@ -109,6 +114,7 @@ def main():
             caught += 1
             print(f"{label:<38} caught: {type(e).__name__}: {str(e)[:60]}")
     sys.modules[name] = original
+    importlib.reload(F0)
     print(f"{caught}/{len(muts)} injected bugs caught by test_engine.py")
 
     if "--exhaustive" in sys.argv:  # the same bugs against verify/exhaustive.py (quick scopes)
