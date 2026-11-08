@@ -3,6 +3,10 @@
 After any merge, split or regroup of clusters, the engine holds exactly what a fresh LIFO
 trace of the new clustering produces, without retracing the network.
 
+**Start here:** [the documentation](docs/README.md) walks through the code page by page;
+[the report](docs/report.md) is the full write-up, with its [proofs appendix](docs/proofs.md);
+[the challenge](docs/challenge.pdf) is the Heights Labs research challenge this answers.
+
 Two engines with one interface and identical results:
 
 * `lifo_nb.Engine`: compiled with Numba; state in NumPy arrays. The one to use.
@@ -10,9 +14,21 @@ Two engines with one interface and identical results:
 
 `from engine import Engine` picks the compiled engine when NumPy and Numba are installed
 and the ledger fits its int64 arithmetic (total volume below 2**62, labels below 2**63),
-and the reference otherwise. Requirements: `numpy` and `numba` for the compiled engine,
-`z3-solver` for `verify/smt_checks.py`, `psutil` for the benchmark's memory readings.
-Numba compiles the kernels on first use (about 10 s) and caches them on disk; later runs
+and the reference otherwise.
+
+## Setup
+
+Dependencies are managed with [uv](https://docs.astral.sh/uv/): `pyproject.toml` lists them,
+`uv.lock` pins them, and `.python-version` selects Python 3.12. From the repository root:
+
+```
+uv sync                       # numpy, numba, z3-solver, psutil into .venv/
+uv run python toy.py          # the challenge ledger, all three events
+```
+
+`numpy` and `numba` run the compiled engine, `z3-solver` the proofs in `verify/smt_checks.py`,
+and `psutil` the benchmark's memory readings; `uv sync --group docs` adds `matplotlib` for
+`docs/figures/make_figures.py`. Numba compiles the kernels on first use (10–15 s) and caches them on disk; later runs
 load them in well under a second.
 
 | File | What it is |
@@ -30,22 +46,24 @@ load them in well under a second.
 | `verify/exhaustive.py` | Bounded exhaustive check of an engine against the unit-level specification: every valid ledger in scope (amounts 1–2, one stolen and one clean source), every clustering, every single-block regroup, merge and split with undo, and every ordered pair of clusterings, under 5 engine settings; full state compared after every operation, lemmas asserted on the specification. `--nb` checks the compiled engine |
 | `verify/toy_independent.py` | The challenge ledger traced by a separate implementation written from the rules alone, then compared with the package |
 | `results/` | Raw logs and JSON of every run reported; `results/README.md` lists the command behind each |
+| `docs/` | The documentation, the report, its proofs appendix and the challenge |
+| `pyproject.toml`, `uv.lock` | Dependencies, managed with uv |
 
 ## Reproduce
 
 ```
-python3 toy.py                              # challenge ledger, all three events
-python3 verify/toy_independent.py           # the same ledger, independent implementation
-python3 test_engine.py 2000 11              # reference engine, 2,000 random ledgers (also seeds 12, 13)
-python3 test_engine.py 2000 11 --nb         # compiled engine in lockstep with the reference
-python3 mutate.py --exhaustive              # 12 bugs in lifo.py; see results/mutation.log
-python3 mutate.py --exhaustive --nb         # 22 bugs in lifo_nb.py
-python3 verify/smt_checks.py                # Z3 proofs, about 10 s, plus the fidelity check
-python3 verify/exhaustive.py                # reference engine, every case in scope, about 46 min on 2 cores
-python3 verify/exhaustive.py --nb S1        # compiled engine; S2 in parts: --nb S2 0/4 ... --nb S2 3/4
-python3 bench.py 1000000 --nb --mem --ablate --out results/nb_n1000000.json   # compiled
-python3 bench.py 1000000 --mem --ablate --out results/n1000000.json           # reference
-python3 experiments.py                      # compile vs vectorize, on the 1M network
+uv run python toy.py                              # challenge ledger, all three events
+uv run python verify/toy_independent.py           # the same ledger, independent implementation
+uv run python test_engine.py 2000 11              # reference engine, 2,000 random ledgers (also seeds 12, 13)
+uv run python test_engine.py 2000 11 --nb         # compiled engine in lockstep with the reference
+uv run python mutate.py --exhaustive              # 12 bugs in lifo.py; see results/mutation.log
+uv run python mutate.py --exhaustive --nb         # 22 bugs in lifo_nb.py
+uv run python verify/smt_checks.py                # Z3 proofs, about 10 s, plus the fidelity check
+uv run python verify/exhaustive.py                # reference engine, every case in scope, about 46 min on 2 cores
+uv run python verify/exhaustive.py --nb S1        # compiled engine; S2 in parts: --nb S2 0/4 ... --nb S2 3/4
+uv run python bench.py 1000000 --nb --mem --ablate --out results/nb_n1000000.json   # compiled
+uv run python bench.py 1000000 --mem --ablate --out results/n1000000.json           # reference
+uv run python experiments.py                      # compile vs vectorize, on the 1M network
 ```
 
 `NUMBA_BOUNDSCHECK=1` (with a separate `NUMBA_CACHE_DIR`) compiles the kernels with array

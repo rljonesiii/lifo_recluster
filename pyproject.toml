@@ -1,0 +1,21 @@
+[project]
+name = "lifo-recluster"
+version = "1.0.0"
+description = "Incremental exact LIFO fund tracing under dynamic reclustering"
+readme = "README.md"
+authors = [{ name = "Robert L. Jones III" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "numpy>=1.24",      # the compiled engine's state arrays
+    "numba>=0.59",      # compiles the engine's kernels (lifo_nb.py)
+    "z3-solver>=4.12",  # SMT proofs (verify/smt_checks.py)
+    "psutil>=5.9",      # memory readings in bench.py
+]
+
+[dependency-groups]
+docs = [
+    "matplotlib>=3.7",  # regenerates the figures in docs/figures
+]
+
+[tool.uv]
+package = false  # a set of scripts, not an installable package
