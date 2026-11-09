@@ -49,6 +49,7 @@ load them in well under a second.
 | `verify/toy_independent.py` | The challenge ledger traced by a separate implementation written from the rules alone, then compared with the package |
 | `results/` | Raw logs and JSON of every run reported; `results/README.md` lists the command behind each |
 | `docs/` | The documentation, the report, its proofs appendix and the challenge |
+| `spark/` | A sketch of the batch build for a full ledger on PySpark and Kubernetes (Kubeflow Spark Operator, Delta Lake on S3-compatible storage), checked in local mode against `lifo.sweep` and `fresh_trace`; `spark/README.md` explains it |
 | `pyproject.toml`, `uv.lock` | Dependencies, managed with uv |
 
 ## Reproduce

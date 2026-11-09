@@ -1,0 +1,57 @@
+# One full build: routes for every cluster, stolen labels, flows and holdings, written as Delta
+# tables under s3a://lifo-lake/trace. Needs the Kubeflow Spark Operator watching namespace lifo.
+#   kubectl apply -f k8s/10-build.sparkapplication.yaml
+#   kubectl get sparkapplication lifo-build -n lifo -w
+#   kubectl logs -n lifo lifo-build-driver
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: lifo-build
+  namespace: lifo
+spec:
+  type: Python
+  mode: cluster
+  sparkVersion: "4.0.5"
+  image: registry.example.com/lifo-spark:0.1.0
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/lifo/jobs/lifo_spark/build.py
+  arguments:
+    - --transfers=s3a://lifo-lake/input/transfers
+    - --sources=s3a://lifo-lake/input/sources
+    - --membership=s3a://lifo-lake/input/membership
+    - --out=s3a://lifo-lake/trace
+    - --checkpoint-dir=s3a://lifo-lake/checkpoints/build
+    - --partitions=2048
+    - --buckets=256
+    - --labels-checkpoint-every=1  # raise it to rewrite the labels table less often
+  sparkConf:
+    spark.sql.extensions: io.delta.sql.DeltaSparkSessionExtension
+    spark.sql.catalog.spark_catalog: org.apache.spark.sql.delta.catalog.DeltaCatalog
+    spark.sql.shuffle.partitions: "2048"
+    spark.sql.execution.arrow.maxRecordsPerBatch: "100000"
+    spark.cleaner.referenceTracking.cleanCheckpoints: "true"
+    spark.kubernetes.driver.secretKeyRef.AWS_ACCESS_KEY_ID: lifo-object-store:access-key
+    spark.kubernetes.driver.secretKeyRef.AWS_SECRET_ACCESS_KEY: lifo-object-store:secret-key
+    spark.kubernetes.executor.secretKeyRef.AWS_ACCESS_KEY_ID: lifo-object-store:access-key
+    spark.kubernetes.executor.secretKeyRef.AWS_SECRET_ACCESS_KEY: lifo-object-store:secret-key
+  hadoopConf:
+    # An in-cluster MinIO. For AWS S3, drop these four and use the default endpoint.
+    fs.s3a.endpoint: http://minio.lifo.svc.cluster.local:9000
+    fs.s3a.endpoint.region: us-east-1
+    fs.s3a.path.style.access: "true"
+    fs.s3a.connection.ssl.enabled: "false"
+  restartPolicy:
+    type: OnFailure          # the outputs are overwritten, so a retry is safe
+    onFailureRetries: 2
+    onFailureRetryInterval: 60
+    onSubmissionFailureRetries: 2
+    onSubmissionFailureRetryInterval: 60
+  driver:
+    serviceAccount: spark
+    cores: 2
+    memory: 8g
+  executor:
+    instances: 16
+    cores: 4
+    memory: 24g
+    memoryOverhead: 8g       # the Python workers (pandas, Arrow, the Numba sweep) live here
