@@ -68,9 +68,9 @@ Each cell is the stolen dollars a transfer carries, then its composition bottom-
 | 14 | I → Exchange X | 60 | 30 (S10 C30 S20) | 30 | **10 (S10 C50)** | 10 |
 | 15 | G → Exchange Y | 30 | 20 (C10 S20) | 20 | 20 | 20 |
 
-Where the $100 of stolen funds ends up:
+Where the $100 of stolen funds ends up, in stolen dollars (each row adds up to $100):
 
-| State | Exchange X | Exchange Y | Still held |
+| State | Exchange X | Exchange Y | Still held by other clusters |
 | --- | --- | --- | --- |
 | Baseline | 30 | 20 | B 30, F 10, I 10 |
 | +B–E | 30 | 20 | B+E 30, F 10, I 10 |
