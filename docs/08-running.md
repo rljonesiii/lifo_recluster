@@ -41,7 +41,7 @@ Each command prints what the logs in [`results/`](../results/) recorded; [`resul
 | `uv run python toy.py` | The challenge ledger, both engines and both tracers | ~1 s |
 | `uv run python verify/toy_independent.py` | The same ledger, traced by a separate implementation | ~1 s |
 | `uv run python verify/smt_checks.py` | The Z3 proofs, their self-test and the fidelity check | ~10 s |
-| `uv run python test_engine.py 2000 11` | The reference engine on 2,000 random ledgers (also seeds 12 and 13) | ~25 s |
+| `uv run python test_engine.py 2000 11` | The reference engine on 2,000 random ledgers (also seeds 12 and 13) | ~27 s |
 | `uv run python test_engine.py 2000 11 --nb` | The compiled engine in lockstep with the reference | ~65 s |
 | `uv run python verify/exhaustive.py --quick` | A short exhaustive run (up to 4 transactions) | ~80 s |
 | `uv run python verify/exhaustive.py` | The full bounded exhaustive check, reference engine | ~65 min |

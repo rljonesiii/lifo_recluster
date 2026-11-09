@@ -505,7 +505,7 @@ z
    </g>
   </g>
   <g id="text_26">
-   <text style="font-weight: 700; font-size: 12px; font-family: 'DejaVu Sans', 'Helvetica', 'Arial', sans-serif; text-anchor: start; fill: #0b0b0b" x="7.4304" y="20.998125" transform="rotate(-0 7.4304 20.998125)">Local updates get faster as the network grows</text>
+   <text style="font-weight: 700; font-size: 12px; font-family: 'DejaVu Sans', 'Helvetica', 'Arial', sans-serif; text-anchor: start; fill: #0b0b0b" x="7.4304" y="20.998125" transform="rotate(-0 7.4304 20.998125)">Local updates' advantage grows with the network</text>
   </g>
   <g id="text_27">
    <text style="font-size: 9px; font-family: 'DejaVu Sans', 'Helvetica', 'Arial', sans-serif; text-anchor: start; fill: #52514e" x="7.4304" y="36.300994" transform="rotate(-0 7.4304 36.300994)">Compiled engine: fresh-trace time divided by incremental-update time, for 14 operations at 3 network sizes</text>

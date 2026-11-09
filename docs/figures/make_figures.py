@@ -119,7 +119,7 @@ def speedup_figure(path):
     fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.012, 0.915),
                ncol=3, frameon=False, fontsize=9, labelcolor=INK2, handletextpad=0.3,
                columnspacing=1.4)
-    fig.text(0.012, 0.975, "Local updates get faster as the network grows",
+    fig.text(0.012, 0.975, "Local updates' advantage grows with the network",
              fontsize=12, fontweight="bold", color=INK, va="top")
     fig.text(0.012, 0.938, "Compiled engine: fresh-trace time divided by incremental-update "
              "time, for 14 operations at 3 network sizes",

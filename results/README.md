@@ -1,9 +1,9 @@
 # Results
 
-Raw output of every run reported in the report, all on the final code and on the machine
-described below. Each log starts with the command line (`$ ...`) and ends with the exit
-status and wall time. All commands run from the package root, in the environment `uv sync`
-installs.
+Raw output of every run reported in the report, on the final code (with the one exception
+noted under Timings) and on the machine described below. Each log starts with the command
+line (`$ ...`) and ends with the exit status and wall time. All commands run from the
+package root, in the environment `uv sync` installs.
 
 | Log | Command | What it shows |
 | --- | --- | --- |
@@ -19,22 +19,26 @@ installs.
 | `exhaustive_nb.log` | `uv run python verify/exhaustive.py --nb S1`, then `--nb S2 0/4`, `1/4`, `2/4` and `3/4` | The compiled engine over the same scope, in five runs |
 | `n10000.*`, `n100000.*`, `n1000000.*` | `uv run python bench.py N --repeat 5 --mem --ablate --out results/nN.json` | The reference engine's benchmark; `.json` holds every timing, work counter and memory reading, and the machine |
 | `nb_n10000.*`, `nb_n100000.*`, `nb_n1000000.*` | `uv run python bench.py N --nb --repeat 5 --mem --ablate --out results/nb_nN.json` | The compiled engine's benchmark |
+| `machine.log` | the command at its top | The machine and the library versions everything ran with |
 | `experiments.log` | `uv run python experiments.py` | The micro-benchmarks behind "compile rather than vectorize", the worst case, and the route-stability check, on the 1M network |
 
 [`SOURCES.md5`](SOURCES.md5) holds the checksums of the code these logs ran on
 (`md5sum -c results/SOURCES.md5` from the package root).
 
-**Machine.** A cloud virtual machine with 2 vCPUs of an Intel Xeon at 2.10 GHz (with AVX-512
-and AMX, so Sapphire Rapids or later) and 7.8 GB of RAM, running Ubuntu 24.04.5 on Linux 6.18;
-Python 3.12.3, NumPy 2.5.4, Numba 0.68.1 (llvmlite 0.50.0), z3-solver 5.3.3 and psutil
-7.2.2, installed by uv 0.11.32 from `uv.lock`. Each benchmark
-result file records the machine and versions under `machine`.
+**Machine** ([`machine.log`](machine.log)). A cloud virtual machine with 2 vCPUs of an Intel
+Xeon at 2.10 GHz (with AVX-512 and AMX, so Sapphire Rapids or later) and 7.8 GB of RAM,
+running Ubuntu 24.04.5 on Linux 6.18; Python 3.12.3, NumPy 2.5.4, Numba 0.68.1 (llvmlite
+0.50.0), z3-solver 5.3.3 and psutil 7.2.2, installed by uv 0.11.32 from `uv.lock`. Each
+benchmark result file records the machine and versions under `machine`.
 
 **Timings.** The benchmarks ran one at a time with nothing else on the machine. In the main
 run, each operation and each fresh trace is the median of 5 runs of the whole script on
 fresh engines; the JSON keeps all 5 (`inc_runs`, `fresh_runs`). The two ablation runs and
 the memory run are single runs. Work counters and results never vary between runs, and
-the benchmark checks that they do not.
+the benchmark checks that they do not. The exception: the three reference-engine benchmarks
+(`n10000`, `n100000`, `n1000000`) ran on `bench.py` just before its last change, which only
+the compiled engine's memory run uses (it hands free heap memory back to the system before
+each measured step); `SOURCES.md5` lists the final file.
 
 **Memory.** The reference engine's figures come from tracemalloc: what the ledger and the
 engine hold, and each step's peak above what was held before it. tracemalloc cannot see

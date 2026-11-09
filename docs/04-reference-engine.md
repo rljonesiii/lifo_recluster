@@ -2,7 +2,7 @@
 
 [← 3. The update](03-the-update.md) · [Index](README.md)
 
-[`lifo.py`](../lifo.py) is the whole algorithm in 544 lines of standard-library Python. It is written to be read: the compiled engine on [page 5](05-compiled-engine.md) does the same thing step for step, and the tests compare the two after every operation. This page walks through the file from top to bottom.
+[`lifo.py`](../lifo.py) is the whole algorithm in 543 lines of standard-library Python. It is written to be read: the compiled engine on [page 5](05-compiled-engine.md) does the same thing step for step, and the tests compare the two after every operation. This page walks through the file from top to bottom.
 
 ## Using it
 

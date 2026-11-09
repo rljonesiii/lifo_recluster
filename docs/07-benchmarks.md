@@ -31,17 +31,17 @@ The challenge asks for networks of about 10,000, 100,000 and 1,000,000 transacti
 ![Speedup of each incremental update over a fresh trace, at 10k, 100k and 1M transactions](figures/speedup.svg)
 
 - **Local changes stay local.** They cost 0.2–0.5 ms at every size, so their advantage grows with the network: 3.5–6× faster than a fresh trace at 10k, 35–59× at 100k and 610–1,200× at 1M. A root merge near the hack touched 45 of 1,000,000 transactions.
-- **Big clusters cost their size.** A change to one or two of the 11,000-address exchanges takes 42–139 ms at 1M, 2.2–6.4× faster than a fresh trace. A new exchange cluster costs a re-sweep of about 70,000 events per exchange. An undo whose routing comes back from the cache sweeps nothing but still relabels the tens of thousands of transactions it touches.
+- **Big clusters cost their size.** A change to one or two of the 11,000-address exchanges takes 42–139 ms at 1M, 2.2–6.4× faster than a fresh trace. A new exchange cluster costs a re-sweep of about 70,000 events per exchange (80,558 when one is split in half). An undo whose routing comes back from the cache sweeps nothing but still relabels the tens of thousands of transactions it touches.
 - **Global changes approach a fresh trace.** Merging all four exchanges re-sweeps 276,000 events and recomputes 179,000 labels: 1.4× faster at 1M. At 10k and 100k the same merge relabels more than a quarter of the network, so the linear-pass fallback takes over, and it costs 1.5× and 1.3× a fresh trace.
 - **Memory follows the work.** At 1M a local change needs no measurable memory beyond the engine's state, and merging all four exchanges peaks at 35 MB, against 64 MB for a fresh trace.
 
 Running the same script with the routing cache off, and again with the equality cutoff off, shows what each one buys. Without the cutoff, the root merge relabels 118,101 transactions instead of 45 (61 ms instead of 0.34 ms). Without the cache, undoing the exchange merge re-sweeps 138,616 events instead of none. The [report](report.md#8-scaling-benchmarks) has the full per-operation work counts and the ablation table.
 
-All times are medians of five runs on a 2-core cloud machine, described in the [report](report.md#8-scaling-benchmarks). Every one of the 588 checkpoints, in both engines, matched a fresh trace exactly.
+All times except the ablation runs are medians of five runs on a 2-core cloud machine, described in the [report](report.md#8-scaling-benchmarks). Every one of the 588 checkpoints, in both engines, matched a fresh trace exactly.
 
 ## Compile or vectorize?
 
-[`experiments.py`](../experiments.py) measures the engine's hot paths four ways (plain Python, a pure functional fold, NumPy calls, and compiled with Numba) on the largest cluster of the 1M network. This is the evidence behind choosing Numba ([page 5](05-compiled-engine.md#why-compile-instead-of-vectorize)). The same script also measures the worst case, a ledger on which an update costs up to 673× a fresh trace ([the report](report.md#5-the-update-algorithm)), and checks the route-stability rule behind the report's first [future-work item](report.md#future-work).
+[`experiments.py`](../experiments.py) measures the engine's hot paths in plain Python and through NumPy calls, and the sweep also as a pure functional fold and compiled with Numba: the sweep and event list on the 1M network's busiest cluster, label recomputation and net flows over the ledger. This is the evidence behind choosing Numba ([page 5](05-compiled-engine.md#why-compile-instead-of-vectorize)). The same script also measures the worst case, a ledger on which an update costs up to 673× a fresh trace ([the report](report.md#5-the-update-algorithm)), and checks the route-stability rule behind the report's first [future-work item](report.md#future-work).
 
 ## The result files
 

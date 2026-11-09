@@ -1,7 +1,9 @@
 # Incremental exact LIFO tracing under reclustering
 
 After any merge, split or regroup of clusters, the engine holds exactly what a fresh LIFO
-trace of the new clustering produces, without retracing the network.
+trace of the new clustering produces. It re-processes only the clusters a change creates and
+the labels that change; a change that reaches a quarter of the network finishes with one
+linear pass instead.
 
 **Start here:** [the documentation](docs/README.md) walks through the code page by page;
 [the report](docs/report.md) is the full write-up, with its [proofs appendix](docs/proofs.md);
@@ -39,11 +41,11 @@ load them in well under a second.
 | `toy.py` | The 15-transaction challenge ledger: baseline, +B–E, +D–F, −B–E, checked against fresh traces |
 | `test_engine.py` | Differential tests: random ledgers and operations, each result checked against a fresh trace and a from-scratch rebuild; on small-amount ledgers the fresh trace is also checked against an independent unit-by-unit tracer. With `--nb`, the compiled engine runs in lockstep with the reference and must match its whole state after every step, and its hidden state must stay consistent. Then targeted tests (amounts near and past the int64 bound, thresholds, holdings-array growth, negative tests of the self-checks) and input validation |
 | `mutate.py` | Injects bugs into an engine one at a time (12 into `lifo.py`, or 22 into `lifo_nb.py` with `--nb`) and checks that `test_engine.py` catches each and, with `--exhaustive`, that `verify/exhaustive.py` catches each its scope can reach (bugs that weaken a self-check are left to the negative tests) |
-| `experiments.py` | The micro-benchmarks behind "compile rather than vectorize" (the hot paths in plain Python, as a functional fold, through NumPy calls and compiled), the worst case of an update against a fresh trace, and the route-stability check behind the future-work item |
+| `experiments.py` | The micro-benchmarks behind "compile rather than vectorize" (the hot paths in plain Python and through NumPy calls, and the sweep also as a functional fold and compiled), the worst case of an update against a fresh trace, and the route-stability check behind the future-work item |
 | `gen.py` | Synthetic laundering networks: hacks, peel chains, exchanges with thousands of deposit addresses, change addresses, internal sweeps |
 | `bench.py` | Scaling benchmark: 14 reclustering operations, each timed against a fresh trace and checked for exact equality; memory; ablations. `--nb` runs the compiled engine against the compiled fresh trace |
 | `verify/smt_checks.py` | Z3 proofs: every feasible path of the sweep's event code with symbolic ids, block sizes and amounts (stacks of up to 12 blocks) and push order; self-test (9 injected bugs) and a fidelity check of the transcription against `lifo.sweep` and both compiled code paths |
-| `verify/exhaustive.py` | Bounded exhaustive check of an engine against the unit-level specification: every valid ledger in scope (amounts 1–2, one stolen and one clean source), every clustering, every single-block regroup, merge and split with undo, and every ordered pair of clusterings, under 5 engine settings; full state compared after every operation, lemmas asserted on the specification. `--nb` checks the compiled engine |
+| `verify/exhaustive.py` | Bounded exhaustive check of an engine against the unit-level specification: every valid ledger in scope (amounts 1–2, one stolen and one clean source), every clustering, every single-block regroup with undo and every ordered pair of clusterings under 5 engine settings, and every merge and split with undo under the defaults; full state compared after every operation, lemmas asserted on the specification. `--nb` checks the compiled engine |
 | `verify/toy_independent.py` | The challenge ledger traced by a separate implementation written from the rules alone, then compared with the package |
 | `results/` | Raw logs and JSON of every run reported; `results/README.md` lists the command behind each |
 | `docs/` | The documentation, the report, its proofs appendix and the challenge |
