@@ -174,6 +174,16 @@ For comparison, building the engine costs O(*n* log *n* + *P* + *C*) in the refe
 
 Every theorem is backed by at least one machine check. The Z3 checks are proofs about a transcription of the code. They cover the sweep's event code for all inflow ids, block sizes and amounts at stack depths up to 12 blocks, and Theorem 3 for every permutation of up to 5 units. The exhaustive run executes both shipped engines, the pure-Python reference and the compiled one, on every case in a stated small scope. After every operation it compares the engine's whole state with a reference built from the unit-level specification alone.
 
+**What SMT solving and Z3 are.** An SMT solver takes a logical formula over integers, Booleans and similar values, and decides whether any assignment of values makes it true. SMT stands for satisfiability modulo theories: the true-or-false search of a SAT solver, combined with built-in reasoning about arithmetic and other theories. Z3, from Microsoft Research, is the SMT solver used here (reference [9] in [the report](report.md#12-references)).
+
+**How a property is proved.** The check gives Z3 the assumptions together with the negation of the property, and asks for an assignment that satisfies them all. Such an assignment would be a counterexample: concrete values that break the property. The answer "unsatisfiable" means no such values exist, and because the inputs are symbols rather than chosen numbers, that one answer covers every input at once.
+
+**Theorem 6.** The sweep's per-event code is transcribed into Python that builds Z3 terms, then run symbolically, with inflow ids, block sizes and the amount left as unbounded integers (symbolic execution, reference [10] in [the report](report.md#12-references)). At each comparison the run splits in two, Z3 drops the branches no input can reach, and 313 feasible paths remain over stacks of 0 to 12 blocks. On each path Z3 proves that the pieces are exactly the top units of the stack, that a pop leaves exactly the units below and a read leaves the stack unchanged, and that the path cannot run off the bottom of the stack.
+
+**Theorem 3.** Z3 searches each of the 153 ways to push up to 5 units back for a labelling the push would change. It finds one for every order except the original, and proves that none exists for the original.
+
+**Model checking.** Strictly, Z3 here proves formulas about the code's paths; model checking instead explores the states a system can reach. The exhaustive run below is the model-checking side of this appendix: it visits every engine state within a small scope.
+
 | Theorem | Z3 ([`verify/smt_checks.py`](../verify/smt_checks.py)) | Exhaustive, both engines ([`verify/exhaustive.py`](../verify/exhaustive.py)) |
 | --- | --- | --- |
 | T1 Well-definedness and conservation | — | Asserted on the specification in all 1,944,228 cases |
