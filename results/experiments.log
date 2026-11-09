@@ -1,23 +1,49 @@
-$ python3 experiments.py
-network: 1,000,000 transactions, 481,619 wallets, built in 6.9 s
+$ uv run python experiments.py
+network: 1,000,000 transactions, 481,619 wallets, built in 9.8 s
 largest cluster by events: 11,498 wallets, 69,805 events
 
 one cluster's sweep (event list, LIFO pass, readers)
-  lifo.sweep, plain Python            132.03 ms
-  pure functional fold                128.52 ms   0.97x the plain loop's time
-  lifo_nb._sweep, compiled              6.15 ms   21x faster than plain Python (first call 560.7 ms, compiled code loaded from the cache); routes and readers identical
+  lifo.sweep, plain Python            155.25 ms
+  pure functional fold                170.56 ms   1.10x the plain loop's time
+  lifo_nb._sweep, compiled             10.78 ms   14x faster than plain Python (first call 168.2 ms, compiled code loaded from the cache); routes and readers identical
 
 the cluster's event list
-  Python set + sort                    19.17 ms
-  NumPy unique(concatenate)             3.37 ms   5.7x faster
-  NumPy mask over the whole ledger      1.91 ms   10.0x faster (scans all 1,000,000)
+  Python set + sort                    24.47 ms
+  NumPy unique(concatenate)            17.80 ms   1.4x faster
+  NumPy mask over the whole ledger      4.38 ms   5.6x faster (scans all 1,000,000)
 
 one label recomputation (20,000 sending transactions, 1.41 pieces on average)
-  Python tuples                         0.58 us
-  NumPy calls                          20.78 us   36x slower
+  Python tuples                         0.89 us
+  NumPy calls                          21.48 us   24x slower
 
 per-wallet net stolen flows over the whole ledger
-  Python loop                          55.83 ms
-  NumPy bincount                       10.16 ms   5.5x faster
-(exit 0, 19 s wall)
+  Python loop                          70.63 ms
+  NumPy bincount                       21.31 ms   3.3x faster
 
+worst case: K one-unit deposits into A, then K transfers of the whole balance between A and B,
+then A and B merged (each transfer becomes an internal read of all K deposits)
+  K = 300: 90,000 route pieces, 600 label runs over 600 transactions
+    reference update     24.47 ms   fresh trace   0.171 ms      143x the fresh trace; exact
+    compiled  update      4.12 ms   fresh trace   0.102 ms       40x the fresh trace; exact
+  K = 1,000: 1,000,000 route pieces, 2,000 label runs over 2,000 transactions
+    reference update    325.42 ms   fresh trace   0.483 ms      673x the fresh trace; exact
+    compiled  update     78.64 ms   fresh trace   0.189 ms      417x the fresh trace; exact
+
+route stability: sends a merge or split can re-route, by a rule that needs no sweep
+  (d: events of the parts that join or leave the largest part)
+  operation                                   re-swept       d   flagged   changed  all changes flagged
+  nested-excursion merge (no-op)                     4       2         1         0  yes
+  late local merge                                   4       2         1         1  yes
+  entity discovery merge                            11       3         5         4  yes
+  root merge (large early hack-1 holders)           14       2         3         3  yes
+  distant-branch merge (hack 1 x hack 2)            10       4         2         2  yes
+  absorb into exchange cluster                  69,824      20       176       165  yes
+  overlapping merge (4 + 5a)                        24      10         2         2  yes
+  split v4 out of (4+5a)                            12      12         5         5  yes
+  split exchange 1 in half                      80,558  34,744    31,843    25,821  yes
+  merge exchanges 2 + 3                        138,457  69,171    50,985    49,617  yes
+  undo late local merge                              0       2         1         1  yes
+  re-merge exchange 1                                0  34,744    31,843    25,821  yes
+  undo exchange 2 + 3 merge                          0  69,171    50,985    49,617  yes
+  merge all four exchanges                     276,143 207,315   124,220   120,947  yes
+(exit 0, 62 s wall)

@@ -6,7 +6,7 @@
 
 ## Why compile instead of vectorize
 
-The loops that do the work are sequential. A sweep reads the stack the previous event left behind. A label is built from the labels of earlier transactions. Propagation pops from a heap whose next entry depends on which labels just changed. NumPy speeds up whole-array operations, not loops like these, and on the engine's small objects it is slower: one label recomputation (about 1.4 pieces) costs 0.58 µs with Python tuples and 21 µs through NumPy calls. Numba instead compiles ordinary loops over arrays. On the largest cluster of the 1M network (69,805 events), the compiled sweep runs 21× faster than the Python one, with identical results. [`experiments.py`](../experiments.py) measures all of this; its output is [`results/experiments.log`](../results/experiments.log).
+The loops that do the work are sequential. A sweep reads the stack the previous event left behind. A label is built from the labels of earlier transactions. Propagation pops from a heap whose next entry depends on which labels just changed. NumPy speeds up whole-array operations, not loops like these, and on the engine's small objects it is slower: one label recomputation (about 1.4 pieces) costs 0.89 µs with Python tuples and 21 µs through NumPy calls. Numba instead compiles ordinary loops over arrays. On the largest cluster of the 1M network (69,805 events), the compiled sweep runs 14× faster than the Python one, with identical results. [`experiments.py`](../experiments.py) measures all of this; its output is [`results/experiments.log`](../results/experiments.log).
 
 ## How the state is stored
 

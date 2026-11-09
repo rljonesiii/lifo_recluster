@@ -22,7 +22,7 @@ Every input comes before its reader in time, so popping in time order means each
 
 ## Two safeguards
 
-- **The linear pass.** If the wave grows past n/4 recomputed transactions, propagation switches to one plain pass over every later transaction ([lines 493–497](../lifo.py#L493-L497)). That caps the label work at about 1.25 n recomputations, so even the worst update costs a small multiple of a fresh trace ([Theorem 9](proofs.md#the-algorithm)).
+- **The linear pass.** If the wave grows past n/4 recomputed transactions, propagation switches to one plain pass over every later transaction ([lines 493–497](../lifo.py#L493-L497)). That caps the number of label recomputations at about 1.25 n ([Theorem 9](proofs.md#the-algorithm)), but not their cost: each recomputation walks its route's pieces, and a ledger can have far more pieces than labels have runs, so the worst update can cost much more than a fresh trace ([the worst case](report.md#5-the-update-algorithm)).
 - **The cache budget.** The routing cache is least-recently-used and holds at most n routes in total ([`_cache_put`](../lifo.py#L455)). Evicting an entry only costs a future sweep; it never changes a result.
 
 ## Three levels of "does this change matter?"

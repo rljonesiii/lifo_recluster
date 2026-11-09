@@ -2,7 +2,7 @@
 
 This folder explains how `lifo_recluster` works, in the order you would want to learn it. Each page is short and links to the exact lines of code it describes.
 
-**The story in five sentences.** Heights Labs traces stolen funds through a transaction network with LIFO accounting, one stack per cluster of wallets, and asks how to update the trace when clusters merge or split without retracing everything ([the challenge](challenge.pdf)). The answer here is to split tracing into two parts: *routing*, which units each transfer carries, and *labels*, whether those units are stolen. A cluster's routing depends only on its own members, so a reclustering re-routes only the clusters it creates. Labels are then pushed forward in time order and stop as soon as a recomputed label matches the old one. The result is always identical to a fresh trace, and local changes on a 1M-transaction network take under half a millisecond instead of 0.2 seconds.
+**The story in five sentences.** Heights Labs traces stolen funds through a transaction network with LIFO accounting, one stack per cluster of wallets, and asks how to update the trace when clusters merge or split without retracing everything ([the challenge](challenge.pdf)). The answer here is to split tracing into two parts: *routing*, which units each transfer carries, and *labels*, whether those units are stolen. A cluster's routing depends only on its own members, so a reclustering re-routes only the clusters it creates. Labels are then pushed forward in time order and stop as soon as a recomputed label matches the old one. The result is always identical to a fresh trace, and local changes on a 1M-transaction network take under half a millisecond instead of a quarter of a second.
 
 ## Read in this order
 
@@ -32,7 +32,7 @@ engine.py            picks the compiled engine when it can, the reference otherw
 toy.py               the challenge's 15-transaction ledger through all three events
 gen.py               synthetic laundering networks for the scaling test
 bench.py             the 14-operation scaling benchmark
-experiments.py       micro-benchmarks: compile versus vectorize
+experiments.py       micro-benchmarks, the worst case, route stability
 test_engine.py       randomized differential tests
 mutate.py            mutation tests: plant bugs, make sure the tests catch them
 verify/              Z3 proofs, the bounded exhaustive check, an independent toy tracer

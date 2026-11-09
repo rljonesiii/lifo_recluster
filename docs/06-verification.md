@@ -31,13 +31,14 @@ With `--nb`, the compiled engine runs **in lockstep** with the reference ([`lock
 
 ## 3. Z3 proofs of the sweep
 
-[`verify/smt_checks.py`](../verify/smt_checks.py) uses the Z3 SMT solver on a line-by-line transcription of the sweep's per-event code ([`inflow_step`](../verify/smt_checks.py#L50), [`sent_step`](../verify/smt_checks.py#L54)):
+[`verify/smt_checks.py`](../verify/smt_checks.py) uses the Z3 SMT solver on a line-by-line transcription of the sweep's per-event code ([`inflow_step`](../verify/smt_checks.py#L46), [`sent_step`](../verify/smt_checks.py#L50)):
 
-- **Part 1** ([`explore_sent`](../verify/smt_checks.py#L143)) runs every feasible path symbolically, with unbounded integer ids, block sizes and amounts, for stacks of 0 to 12 blocks: 313 paths. On each, Z3 proves that the pieces are exactly the top units of the stack and that the stack left behind is right ([Theorem 6](proofs.md#data-structures)).
-- **Part 2** ([`part2`](../verify/smt_checks.py#L218)) proves the arithmetic of the induction steps for conservation and holdings, for all five kinds of transaction ([Theorem 1](proofs.md#the-formulation) and [Theorem 5](proofs.md#factorization)).
-- **Part 3** ([`part3`](../verify/smt_checks.py#L254)) checks all 153 ways of pushing up to 5 units back: only the order-preserving push leaves every label unchanged ([Theorem 3](proofs.md#the-formulation)).
+- **Part 1** ([`explore_sent`](../verify/smt_checks.py#L139)) runs every feasible path symbolically, with unbounded integer ids, block sizes and amounts, for stacks of 0 to 12 blocks: 313 paths. On each, Z3 proves that the pieces are exactly the top units of the stack and that the stack left behind is right ([Theorem 6](proofs.md#data-structures)).
+- **Part 2** ([`part2`](../verify/smt_checks.py#L214)) checks all 153 ways of pushing up to 5 units back: only the order-preserving push leaves every label unchanged ([Theorem 3](proofs.md#the-formulation)).
 
-Two guards keep the proofs honest. [`self_test`](../verify/smt_checks.py#L282) plants 9 bugs in the transcription, and Z3 must refute each with a counterexample. [`fidelity`](../verify/smt_checks.py#L307) runs the transcription on 3,000 random ledgers and requires the same 127,399 routes as `lifo.sweep` and both compiled code paths.
+Conservation and holdings ([Theorem 1](proofs.md#the-formulation) and [Theorem 5](proofs.md#factorization)) have no Z3 check. Once Part 1 fixes each transaction's effect on the stack, their induction steps are plain arithmetic, so they rest on their proofs and on the exhaustive check below, which asserts both in every case.
+
+Two guards keep the proofs honest. [`self_test`](../verify/smt_checks.py#L242) plants 9 bugs in the transcription, and Z3 must refute each with a counterexample. [`fidelity`](../verify/smt_checks.py#L267) runs the transcription on 3,000 random ledgers and requires the same 127,399 routes as `lifo.sweep` and both compiled code paths.
 
 ## 4. The bounded exhaustive check
 
@@ -53,7 +54,7 @@ A test suite that passes proves little if it would also pass with a bug in the c
 
 ## What is still trusted
 
-Beyond the exhaustive scope, Theorems 2, 4, 7 and 8 rest on their written proofs. Z3 proves Theorem 6 only for stacks of up to 12 blocks, and Theorem 3 only for up to 5 units, though their written proofs cover any size. For Theorems 1 and 5, Z3 checks the arithmetic of each induction step, not the induction itself. Theorem 9 (termination and cost) has no machine check beyond Z3's proof that no sweep path runs off the stack and the fact that every run terminates. The compiled engine's 64-bit bound is argued, not proved; the tests probe it just below the limit. The Z3 transcription is tested against the shipped code, not proved identical to it. The specification itself, `spec_trace`, is trusted as a literal reading of the definitions, and so are Z3, Python and Numba. The [appendix](proofs.md#mechanical-checks) lists exactly which check backs which theorem.
+Beyond the exhaustive scope, Theorems 2, 4, 7 and 8 rest on their written proofs. Z3 proves Theorem 6 only for stacks of up to 12 blocks, and Theorem 3 only for up to 5 units, though their written proofs cover any size. Theorems 1 and 5 have no Z3 check and, beyond the scope, rest on their written proofs. Theorem 9's termination has no machine check beyond Z3's proof that no sweep path runs off the stack and the fact that every run terminates; its cost bounds are measured by the benchmarks, not checked. The compiled engine's 64-bit bound is argued, not proved; the tests probe it just below the limit. The Z3 transcription is tested against the shipped code, not proved identical to it. The specification itself, `spec_trace`, is trusted as a literal reading of the definitions, and so are Z3, Python and Numba. The [appendix](proofs.md#mechanical-checks) lists exactly which check backs which theorem.
 
 ---
 [← 5. The compiled engine](05-compiled-engine.md) · Next: [7. Benchmarks →](07-benchmarks.md)

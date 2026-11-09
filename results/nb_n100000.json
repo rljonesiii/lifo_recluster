@@ -1,4 +1,14 @@
 {
+ "machine": {
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "logical_cpus": 2,
+  "ram_gb": 7.8,
+  "os": "Linux-6.18.44-fc-v310-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "numpy": "2.5.4",
+  "numba": "0.68.1"
+ },
+ "seed": 1,
  "network": {
   "n": 100000,
   "wallets": 47547,
@@ -22,9 +32,13 @@
   "p90_hops": 29,
   "stolen_exchange_deposits": 2426,
   "exchange_deposits_ge20_hops": 887,
-  "gen_s": 0.31046204999984184,
-  "ledger_mb": 8.23046875,
-  "ledger_traced_mb": 10.783885955810547
+  "pieces": 127652,
+  "runs": 122173,
+  "max_pieces": 67,
+  "max_runs": 25,
+  "gen_s": 0.3330111459999898,
+  "ledger_mb": 8.66796875,
+  "ledger_traced_mb": 10.783870697021484
  },
  "ops": [
   [
@@ -99,205 +113,780 @@
   ]
  ],
  "main": {
-  "build_s": 0.15648151200002758,
-  "engine_mb": 6.02734375,
+  "build_s": 0.16314260899980582,
+  "engine_mb": 7.04296875,
   "rows": [
    {
     "op": "nested-excursion merge (no-op)",
     "kind": "merge",
-    "inc_s": 0.0002919230000770767,
+    "inc_s": 0.0002783600002658204,
     "swept": 4,
     "route_changed": 0,
     "relabeled": 0,
     "label_changed": 0,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.027703274000487,
-    "exact": true
+    "fresh_s": 0.01629039300041768,
+    "exact": true,
+    "inc_runs": [
+     0.0002783600002658204,
+     0.0002825720002874732,
+     0.0002349460000914405,
+     0.00022526800057676155,
+     0.00029317600001377286
+    ],
+    "fresh_runs": [
+     0.016552354999475938,
+     0.01629039300041768,
+     0.01605998400009412,
+     0.01837675900060276,
+     0.015525525000157359
+    ]
    },
    {
     "op": "late local merge",
     "kind": "merge",
-    "inc_s": 0.00020775799930561334,
+    "inc_s": 0.0002921469995271764,
     "swept": 4,
     "route_changed": 1,
     "relabeled": 3,
     "label_changed": 3,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.02054199000031076,
-    "exact": true
+    "fresh_s": 0.01575390800007881,
+    "exact": true,
+    "inc_runs": [
+     0.00032122100037668133,
+     0.0002921469995271764,
+     0.000310501999592816,
+     0.0002532319995225407,
+     0.00023460900047211908
+    ],
+    "fresh_runs": [
+     0.01575390800007881,
+     0.017318290999355668,
+     0.01531460599926504,
+     0.016878454000107013,
+     0.015311078000195266
+    ]
    },
    {
     "op": "entity discovery merge",
     "kind": "merge",
-    "inc_s": 0.00021443799960252363,
+    "inc_s": 0.00030658099967695307,
     "swept": 9,
     "route_changed": 3,
     "relabeled": 3,
     "label_changed": 0,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.016866942999513412,
-    "exact": true
+    "fresh_s": 0.01594718100022874,
+    "exact": true,
+    "inc_runs": [
+     0.00048313699971913593,
+     0.0002700609993553371,
+     0.00025406100030522794,
+     0.00030658099967695307,
+     0.00033370800065313233
+    ],
+    "fresh_runs": [
+     0.014906972999597201,
+     0.03073788300025626,
+     0.025127409000560874,
+     0.01594718100022874,
+     0.015788925999913772
+    ]
    },
    {
     "op": "root merge (large early hack-1 holders)",
     "kind": "merge",
-    "inc_s": 0.0004091640003025532,
+    "inc_s": 0.0004779439996127621,
     "swept": 13,
     "route_changed": 6,
     "relabeled": 153,
     "label_changed": 83,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.016950694000115618,
-    "exact": true
+    "fresh_s": 0.016808278000098653,
+    "exact": true,
+    "inc_runs": [
+     0.0005930349998379825,
+     0.0005580649994954001,
+     0.0004109999999855063,
+     0.00036982399979024194,
+     0.0004779439996127621
+    ],
+    "fresh_runs": [
+     0.016808278000098653,
+     0.025915098999576003,
+     0.021526821000406926,
+     0.015437617000316095,
+     0.016278703000352834
+    ]
    },
    {
     "op": "distant-branch merge (hack 1 x hack 2)",
     "kind": "merge",
-    "inc_s": 0.00022846699994261144,
+    "inc_s": 0.00037400200017145835,
     "swept": 11,
     "route_changed": 3,
     "relabeled": 11,
     "label_changed": 9,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.018250713999805157,
-    "exact": true
+    "fresh_s": 0.0171364990001166,
+    "exact": true,
+    "inc_runs": [
+     0.00037968899960105773,
+     0.00037400200017145835,
+     0.0003757519998544012,
+     0.0002883689994632732,
+     0.00026944599994749296
+    ],
+    "fresh_runs": [
+     0.016143974999977218,
+     0.02761893700062501,
+     0.019074277999607148,
+     0.0171364990001166,
+     0.016046549999373383
+    ]
    },
    {
     "op": "absorb into exchange cluster",
     "kind": "merge",
-    "inc_s": 0.003650186999948346,
+    "inc_s": 0.0038322569998854306,
     "swept": 6984,
     "route_changed": 88,
     "relabeled": 200,
     "label_changed": 112,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.016752002999965043,
-    "exact": true
+    "fresh_s": 0.01678651299971534,
+    "exact": true,
+    "inc_runs": [
+     0.0038941160000831587,
+     0.003592314999877999,
+     0.005265365999548521,
+     0.0036437870003283024,
+     0.0038322569998854306
+    ],
+    "fresh_runs": [
+     0.016797456999483984,
+     0.01678651299971534,
+     0.028027146999193064,
+     0.015614137000738992,
+     0.015139832999921055
+    ]
    },
    {
     "op": "overlapping merge (4 + 5a)",
     "kind": "merge",
-    "inc_s": 0.0002421019999019336,
+    "inc_s": 0.00032537900005991105,
     "swept": 24,
     "route_changed": 5,
     "relabeled": 31,
     "label_changed": 18,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.0183265499999834,
-    "exact": true
+    "fresh_s": 0.015924809999887657,
+    "exact": true,
+    "inc_runs": [
+     0.0003269990002081613,
+     0.00032537900005991105,
+     0.00042904000019916566,
+     0.00032095799997478025,
+     0.00032330799967894563
+    ],
+    "fresh_runs": [
+     0.017738919000294118,
+     0.015924809999887657,
+     0.01689819599960174,
+     0.015243332999489212,
+     0.01508604899936472
+    ]
    },
    {
     "op": "split v4 out of (4+5a)",
     "kind": "split",
-    "inc_s": 0.00039801200000511017,
+    "inc_s": 0.0003988270000263583,
     "swept": 15,
     "route_changed": 9,
     "relabeled": 157,
     "label_changed": 85,
     "cache_hits": 1,
     "linear_pass": 0,
-    "fresh_s": 0.017483292000179063,
-    "exact": true
+    "fresh_s": 0.016303121999953873,
+    "exact": true,
+    "inc_runs": [
+     0.0006050369993317872,
+     0.0003988270000263583,
+     0.0005776409998361487,
+     0.0003896709995387937,
+     0.0003894419996868237
+    ],
+    "fresh_runs": [
+     0.026299586000277486,
+     0.016303121999953873,
+     0.022462426999481977,
+     0.015420306000123674,
+     0.015622703000190086
+    ]
    },
    {
     "op": "split exchange 1 in half",
     "kind": "split",
-    "inc_s": 0.008138339000652195,
+    "inc_s": 0.009153019999757817,
     "swept": 8024,
     "route_changed": 2590,
     "relabeled": 7801,
     "label_changed": 4518,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.017577362999873003,
-    "exact": true
+    "fresh_s": 0.016020338000089396,
+    "exact": true,
+    "inc_runs": [
+     0.010007154000049923,
+     0.01012854900000093,
+     0.008908008000616974,
+     0.009153019999757817,
+     0.009062998999979754
+    ],
+    "fresh_runs": [
+     0.016375268000047072,
+     0.016020338000089396,
+     0.018846744999791554,
+     0.015373780000118131,
+     0.015953103999891027
+    ]
    },
    {
     "op": "merge exchanges 2 + 3",
     "kind": "merge",
-    "inc_s": 0.012734381999507605,
+    "inc_s": 0.01480536800045229,
     "swept": 14200,
     "route_changed": 5122,
     "relabeled": 14126,
     "label_changed": 8454,
     "cache_hits": 0,
     "linear_pass": 0,
-    "fresh_s": 0.021013020999816945,
-    "exact": true
+    "fresh_s": 0.01603298099962558,
+    "exact": true,
+    "inc_runs": [
+     0.018893838000622054,
+     0.015540135999799531,
+     0.01480536800045229,
+     0.013516687999981514,
+     0.013993000000482425
+    ],
+    "fresh_runs": [
+     0.023465635000320617,
+     0.015546220000032918,
+     0.01603298099962558,
+     0.016537786000299093,
+     0.015686231000472617
+    ]
    },
    {
     "op": "undo late local merge",
     "kind": "split",
-    "inc_s": 0.0001777930001480854,
+    "inc_s": 0.0002751669999270234,
     "swept": 0,
     "route_changed": 1,
     "relabeled": 3,
     "label_changed": 3,
     "cache_hits": 2,
     "linear_pass": 0,
-    "fresh_s": 0.017364010000164853,
-    "exact": true
+    "fresh_s": 0.015856932000133384,
+    "exact": true,
+    "inc_runs": [
+     0.00030750000041734893,
+     0.00022229299975151662,
+     0.0002713169997150544,
+     0.00027871499969478464,
+     0.0002751669999270234
+    ],
+    "fresh_runs": [
+     0.01660745100070926,
+     0.015179103999798826,
+     0.020106773000406974,
+     0.015856932000133384,
+     0.015754400999867357
+    ]
    },
    {
     "op": "re-merge exchange 1",
     "kind": "merge",
-    "inc_s": 0.005643957000756927,
+    "inc_s": 0.0070970319993648445,
     "swept": 0,
     "route_changed": 2590,
     "relabeled": 7665,
     "label_changed": 4357,
     "cache_hits": 1,
     "linear_pass": 0,
-    "fresh_s": 0.01723934899928281,
-    "exact": true
+    "fresh_s": 0.01638642699981574,
+    "exact": true,
+    "inc_runs": [
+     0.007301165999706427,
+     0.006512285000098927,
+     0.0070959610002319096,
+     0.0070970319993648445,
+     0.007358103999649757
+    ],
+    "fresh_runs": [
+     0.01638642699981574,
+     0.01851715099928697,
+     0.016401760000007926,
+     0.015370047000033082,
+     0.01567227899977297
+    ]
    },
    {
     "op": "undo exchange 2 + 3 merge",
     "kind": "split",
-    "inc_s": 0.009435704999305017,
+    "inc_s": 0.011887214000125823,
     "swept": 0,
     "route_changed": 5122,
     "relabeled": 13933,
     "label_changed": 8312,
     "cache_hits": 2,
     "linear_pass": 0,
-    "fresh_s": 0.0168290049996358,
-    "exact": true
+    "fresh_s": 0.018103070000506705,
+    "exact": true,
+    "inc_runs": [
+     0.011362058000486286,
+     0.010926999000730575,
+     0.017107468000176596,
+     0.011887214000125823,
+     0.012255252000613837
+    ],
+    "fresh_runs": [
+     0.0183156200000667,
+     0.018103070000506705,
+     0.024028679000366537,
+     0.01723930299976928,
+     0.01745738000045094
+    ]
    },
    {
     "op": "merge all four exchanges",
     "kind": "merge",
-    "inc_s": 0.020198238999910245,
+    "inc_s": 0.023104267999769945,
     "swept": 27908,
     "route_changed": 12300,
     "relabeled": 32394,
     "label_changed": 16608,
     "cache_hits": 0,
     "linear_pass": 1,
-    "fresh_s": 0.018151112000850844,
-    "exact": true
+    "fresh_s": 0.017716579999614623,
+    "exact": true,
+    "inc_runs": [
+     0.023221304000799137,
+     0.023104267999769945,
+     0.02333837000060157,
+     0.020813807000195084,
+     0.021798785000100906
+    ],
+    "fresh_runs": [
+     0.026450506999935897,
+     0.015870885999902384,
+     0.017716579999614623,
+     0.01687554900036048,
+     0.017830542999945465
+    ]
    }
-  ]
+  ],
+  "repeats": 5
  },
  "engine": "lifo_nb (compiled)",
- "compile_s": 0.3310728940004992,
- "mem": {
-  "build_s": 0.15331839099962963,
-  "engine_mb": 3.03125,
-  "build_state_mb": 16.55044460296631,
-  "ledger_arrays_mb": 4.826820373535156,
+ "compile_s": 0.2502550449999035,
+ "no_cache": {
+  "build_s": 0.1636265370007095,
+  "engine_mb": 0.0078125,
   "rows": [
    {
     "op": "nested-excursion merge (no-op)",
     "kind": "merge",
-    "inc_s": 0.00024100900009216275,
+    "inc_s": 0.00022754700057703303,
+    "swept": 4,
+    "route_changed": 0,
+    "relabeled": 0,
+    "label_changed": 0,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.021168602000216197,
+    "exact": true
+   },
+   {
+    "op": "late local merge",
+    "kind": "merge",
+    "inc_s": 0.0003151359996991232,
+    "swept": 4,
+    "route_changed": 1,
+    "relabeled": 3,
+    "label_changed": 3,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.018133958999897004,
+    "exact": true
+   },
+   {
+    "op": "entity discovery merge",
+    "kind": "merge",
+    "inc_s": 0.0003822720000243862,
+    "swept": 9,
+    "route_changed": 3,
+    "relabeled": 3,
+    "label_changed": 0,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.026607537000018056,
+    "exact": true
+   },
+   {
+    "op": "root merge (large early hack-1 holders)",
+    "kind": "merge",
+    "inc_s": 0.0004504990001805709,
+    "swept": 13,
+    "route_changed": 6,
+    "relabeled": 153,
+    "label_changed": 83,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.022643111000434146,
+    "exact": true
+   },
+   {
+    "op": "distant-branch merge (hack 1 x hack 2)",
+    "kind": "merge",
+    "inc_s": 0.0003201990002708044,
+    "swept": 11,
+    "route_changed": 3,
+    "relabeled": 11,
+    "label_changed": 9,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.01624753700070869,
+    "exact": true
+   },
+   {
+    "op": "absorb into exchange cluster",
+    "kind": "merge",
+    "inc_s": 0.0036824680000790977,
+    "swept": 6984,
+    "route_changed": 88,
+    "relabeled": 200,
+    "label_changed": 112,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.01638388199990004,
+    "exact": true
+   },
+   {
+    "op": "overlapping merge (4 + 5a)",
+    "kind": "merge",
+    "inc_s": 0.00044307299958745716,
+    "swept": 24,
+    "route_changed": 5,
+    "relabeled": 31,
+    "label_changed": 18,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.015249962999405398,
+    "exact": true
+   },
+   {
+    "op": "split v4 out of (4+5a)",
+    "kind": "split",
+    "inc_s": 0.000598945000092499,
+    "swept": 24,
+    "route_changed": 9,
+    "relabeled": 157,
+    "label_changed": 85,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.016829216999212804,
+    "exact": true
+   },
+   {
+    "op": "split exchange 1 in half",
+    "kind": "split",
+    "inc_s": 0.009381430999383156,
+    "swept": 8024,
+    "route_changed": 2590,
+    "relabeled": 7801,
+    "label_changed": 4518,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.026080736000039906,
+    "exact": true
+   },
+   {
+    "op": "merge exchanges 2 + 3",
+    "kind": "merge",
+    "inc_s": 0.018690085999878647,
+    "swept": 14200,
+    "route_changed": 5122,
+    "relabeled": 14126,
+    "label_changed": 8454,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.017380502999913006,
+    "exact": true
+   },
+   {
+    "op": "undo late local merge",
+    "kind": "split",
+    "inc_s": 0.0005039869993197499,
+    "swept": 4,
+    "route_changed": 1,
+    "relabeled": 3,
+    "label_changed": 3,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.020549310999740555,
+    "exact": true
+   },
+   {
+    "op": "re-merge exchange 1",
+    "kind": "merge",
+    "inc_s": 0.008838888999889605,
+    "swept": 6839,
+    "route_changed": 2590,
+    "relabeled": 7665,
+    "label_changed": 4357,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.019042867999814916,
+    "exact": true
+   },
+   {
+    "op": "undo exchange 2 + 3 merge",
+    "kind": "split",
+    "inc_s": 0.013707979000173509,
+    "swept": 14220,
+    "route_changed": 5122,
+    "relabeled": 13933,
+    "label_changed": 8312,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.01745509500051412,
+    "exact": true
+   },
+   {
+    "op": "merge all four exchanges",
+    "kind": "merge",
+    "inc_s": 0.025142170000435726,
+    "swept": 27908,
+    "route_changed": 12300,
+    "relabeled": 32394,
+    "label_changed": 16608,
+    "cache_hits": 0,
+    "linear_pass": 1,
+    "fresh_s": 0.014870865999910166,
+    "exact": true
+   }
+  ]
+ },
+ "no_cutoff": {
+  "build_s": 0.18764351100071508,
+  "engine_mb": 0.015625,
+  "rows": [
+   {
+    "op": "nested-excursion merge (no-op)",
+    "kind": "merge",
+    "inc_s": 0.0002467719996275264,
+    "swept": 4,
+    "route_changed": 0,
+    "relabeled": 0,
+    "label_changed": 0,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.015588485999614932,
+    "exact": true
+   },
+   {
+    "op": "late local merge",
+    "kind": "merge",
+    "inc_s": 0.0005522279998331214,
+    "swept": 4,
+    "route_changed": 1,
+    "relabeled": 3,
+    "label_changed": 3,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.016725032000067586,
+    "exact": true
+   },
+   {
+    "op": "entity discovery merge",
+    "kind": "merge",
+    "inc_s": 0.0003773079997699824,
+    "swept": 9,
+    "route_changed": 3,
+    "relabeled": 107,
+    "label_changed": 0,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.018697215000429424,
+    "exact": true
+   },
+   {
+    "op": "root merge (large early hack-1 holders)",
+    "kind": "merge",
+    "inc_s": 0.006838151000010839,
+    "swept": 13,
+    "route_changed": 6,
+    "relabeled": 18518,
+    "label_changed": 83,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.015833439999369148,
+    "exact": true
+   },
+   {
+    "op": "distant-branch merge (hack 1 x hack 2)",
+    "kind": "merge",
+    "inc_s": 0.0003200069995727972,
+    "swept": 11,
+    "route_changed": 3,
+    "relabeled": 13,
+    "label_changed": 9,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.016463130000374804,
+    "exact": true
+   },
+   {
+    "op": "absorb into exchange cluster",
+    "kind": "merge",
+    "inc_s": 0.004859794000367401,
+    "swept": 6984,
+    "route_changed": 88,
+    "relabeled": 929,
+    "label_changed": 112,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.017839498000284948,
+    "exact": true
+   },
+   {
+    "op": "overlapping merge (4 + 5a)",
+    "kind": "merge",
+    "inc_s": 0.0003252440001233481,
+    "swept": 24,
+    "route_changed": 5,
+    "relabeled": 62,
+    "label_changed": 18,
+    "cache_hits": 0,
+    "linear_pass": 0,
+    "fresh_s": 0.019051254000260087,
+    "exact": true
+   },
+   {
+    "op": "split v4 out of (4+5a)",
+    "kind": "split",
+    "inc_s": 0.00828958900001453,
+    "swept": 15,
+    "route_changed": 9,
+    "relabeled": 18519,
+    "label_changed": 85,
+    "cache_hits": 1,
+    "linear_pass": 0,
+    "fresh_s": 0.021092914000291785,
+    "exact": true
+   },
+   {
+    "op": "split exchange 1 in half",
+    "kind": "split",
+    "inc_s": 0.025977899999816145,
+    "swept": 8024,
+    "route_changed": 2590,
+    "relabeled": 70046,
+    "label_changed": 4518,
+    "cache_hits": 0,
+    "linear_pass": 1,
+    "fresh_s": 0.022469880000244302,
+    "exact": true
+   },
+   {
+    "op": "merge exchanges 2 + 3",
+    "kind": "merge",
+    "inc_s": 0.03257087100064382,
+    "swept": 14200,
+    "route_changed": 5122,
+    "relabeled": 71944,
+    "label_changed": 8454,
+    "cache_hits": 0,
+    "linear_pass": 1,
+    "fresh_s": 0.02106619700043666,
+    "exact": true
+   },
+   {
+    "op": "undo late local merge",
+    "kind": "split",
+    "inc_s": 0.00032405199999629986,
+    "swept": 0,
+    "route_changed": 1,
+    "relabeled": 3,
+    "label_changed": 3,
+    "cache_hits": 2,
+    "linear_pass": 0,
+    "fresh_s": 0.02077221399940754,
+    "exact": true
+   },
+   {
+    "op": "re-merge exchange 1",
+    "kind": "merge",
+    "inc_s": 0.02174356599971361,
+    "swept": 0,
+    "route_changed": 2590,
+    "relabeled": 69914,
+    "label_changed": 4357,
+    "cache_hits": 1,
+    "linear_pass": 1,
+    "fresh_s": 0.028604851999261882,
+    "exact": true
+   },
+   {
+    "op": "undo exchange 2 + 3 merge",
+    "kind": "split",
+    "inc_s": 0.027034935999836307,
+    "swept": 0,
+    "route_changed": 5122,
+    "relabeled": 71158,
+    "label_changed": 8312,
+    "cache_hits": 2,
+    "linear_pass": 1,
+    "fresh_s": 0.02282003199979954,
+    "exact": true
+   },
+   {
+    "op": "merge all four exchanges",
+    "kind": "merge",
+    "inc_s": 0.030616504999670724,
+    "swept": 27908,
+    "route_changed": 12300,
+    "relabeled": 76865,
+    "label_changed": 16608,
+    "cache_hits": 0,
+    "linear_pass": 1,
+    "fresh_s": 0.02452824400006648,
+    "exact": true
+   }
+  ]
+ },
+ "mem": {
+  "build_s": 0.25077505399985967,
+  "engine_mb": -16.53515625,
+  "build_state_mb": 16.55044460296631,
+  "ledger_arrays_mb": 4.826820373535156,
+  "peak_method": "peak resident set (VmHWM)",
+  "build_peak_mb": 24.6328125,
+  "rows": [
+   {
+    "op": "nested-excursion merge (no-op)",
+    "kind": "merge",
+    "inc_s": 0.00031141500039666425,
     "swept": 4,
     "route_changed": 0,
     "relabeled": 0,
@@ -305,12 +894,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 16.550734519958496,
-    "fresh_s": 0.017090858000301523
+    "inc_peak_mb": 0.00390625,
+    "fresh_s": 0.018810247000146774,
+    "fresh_peak_mb": 6.453125
    },
    {
     "op": "late local merge",
     "kind": "merge",
-    "inc_s": 0.00021674999970855424,
+    "inc_s": 0.00020324199977039825,
     "swept": 4,
     "route_changed": 1,
     "relabeled": 3,
@@ -318,12 +909,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 16.55100917816162,
-    "fresh_s": 0.01701565599978494
+    "inc_peak_mb": 0.0234375,
+    "fresh_s": 0.018356448999838904,
+    "fresh_peak_mb": 6.5234375
    },
    {
     "op": "entity discovery merge",
     "kind": "merge",
-    "inc_s": 0.0002303159999428317,
+    "inc_s": 0.00036910700055159396,
     "swept": 9,
     "route_changed": 3,
     "relabeled": 3,
@@ -331,12 +924,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 16.551833152770996,
-    "fresh_s": 0.016920619000302395
+    "inc_peak_mb": 0.0234375,
+    "fresh_s": 0.017864563999864913,
+    "fresh_peak_mb": 6.51953125
    },
    {
     "op": "root merge (large early hack-1 holders)",
     "kind": "merge",
-    "inc_s": 0.00036627400004363153,
+    "inc_s": 0.00040933600030257367,
     "swept": 13,
     "route_changed": 6,
     "relabeled": 153,
@@ -344,12 +939,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 16.552977561950684,
-    "fresh_s": 0.01680269100052101
+    "inc_peak_mb": 0.0234375,
+    "fresh_s": 0.018004013999416202,
+    "fresh_peak_mb": 6.51953125
    },
    {
     "op": "distant-branch merge (hack 1 x hack 2)",
     "kind": "merge",
-    "inc_s": 0.00026409099973534467,
+    "inc_s": 0.0003020549993379973,
     "swept": 11,
     "route_changed": 3,
     "relabeled": 11,
@@ -357,12 +954,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 16.55369472503662,
-    "fresh_s": 0.019467116000669193
+    "inc_peak_mb": 0.0234375,
+    "fresh_s": 0.017517929999485204,
+    "fresh_peak_mb": 6.5234375
    },
    {
     "op": "absorb into exchange cluster",
     "kind": "merge",
-    "inc_s": 0.00315500000033353,
+    "inc_s": 0.004383992999464681,
     "swept": 6984,
     "route_changed": 88,
     "relabeled": 200,
@@ -370,12 +969,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 17.271422386169434,
-    "fresh_s": 0.016919734999646607
+    "inc_peak_mb": 1.35546875,
+    "fresh_s": 0.01860698299969954,
+    "fresh_peak_mb": 6.453125
    },
    {
     "op": "overlapping merge (4 + 5a)",
     "kind": "merge",
-    "inc_s": 0.00023050500021781772,
+    "inc_s": 0.00022648499907518271,
     "swept": 24,
     "route_changed": 5,
     "relabeled": 31,
@@ -383,12 +984,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 17.27238368988037,
-    "fresh_s": 0.017203851999511244
+    "inc_peak_mb": 0.02734375,
+    "fresh_s": 0.017976725999687915,
+    "fresh_peak_mb": 6.52734375
    },
    {
     "op": "split v4 out of (4+5a)",
     "kind": "split",
-    "inc_s": 0.00037095700008649146,
+    "inc_s": 0.00037870500091230497,
     "swept": 15,
     "route_changed": 9,
     "relabeled": 157,
@@ -396,12 +999,14 @@
     "cache_hits": 1,
     "linear_pass": 0,
     "state_mb": 17.27293300628662,
-    "fresh_s": 0.016749974999584083
+    "inc_peak_mb": 0.02734375,
+    "fresh_s": 0.017871987000035006,
+    "fresh_peak_mb": 6.5234375
    },
    {
     "op": "split exchange 1 in half",
     "kind": "split",
-    "inc_s": 0.007375455000328657,
+    "inc_s": 0.00968362999992678,
     "swept": 8024,
     "route_changed": 2590,
     "relabeled": 7801,
@@ -409,12 +1014,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 17.97018337249756,
-    "fresh_s": 0.016860558999724162
+    "inc_peak_mb": 1.3984375,
+    "fresh_s": 0.017701234999549342,
+    "fresh_peak_mb": 6.55859375
    },
    {
     "op": "merge exchanges 2 + 3",
     "kind": "merge",
-    "inc_s": 0.011743906000447168,
+    "inc_s": 0.01892383099948347,
     "swept": 14200,
     "route_changed": 5122,
     "relabeled": 14126,
@@ -422,12 +1029,14 @@
     "cache_hits": 0,
     "linear_pass": 0,
     "state_mb": 20.64084529876709,
-    "fresh_s": 0.01772191600048245
+    "inc_peak_mb": 4.46875,
+    "fresh_s": 0.024758006000411115,
+    "fresh_peak_mb": 6.578125
    },
    {
     "op": "undo late local merge",
     "kind": "split",
-    "inc_s": 0.00018327900033909827,
+    "inc_s": 0.0001844950002123369,
     "swept": 0,
     "route_changed": 1,
     "relabeled": 3,
@@ -435,12 +1044,14 @@
     "cache_hits": 2,
     "linear_pass": 0,
     "state_mb": 20.64084529876709,
-    "fresh_s": 0.01702380999995512
+    "inc_peak_mb": 0.0,
+    "fresh_s": 0.020891087000563857,
+    "fresh_peak_mb": 6.578125
    },
    {
     "op": "re-merge exchange 1",
     "kind": "merge",
-    "inc_s": 0.005429104000540974,
+    "inc_s": 0.008018480999453459,
     "swept": 0,
     "route_changed": 2590,
     "relabeled": 7665,
@@ -448,12 +1059,14 @@
     "cache_hits": 1,
     "linear_pass": 0,
     "state_mb": 20.64084529876709,
-    "fresh_s": 0.01683995999974286
+    "inc_peak_mb": 0.69140625,
+    "fresh_s": 0.019311346999529633,
+    "fresh_peak_mb": 6.515625
    },
    {
     "op": "undo exchange 2 + 3 merge",
     "kind": "split",
-    "inc_s": 0.009282318000259693,
+    "inc_s": 0.01351416500074265,
     "swept": 0,
     "route_changed": 5122,
     "relabeled": 13933,
@@ -461,12 +1074,14 @@
     "cache_hits": 2,
     "linear_pass": 0,
     "state_mb": 20.64084529876709,
-    "fresh_s": 0.016752791000726575
+    "inc_peak_mb": 1.29296875,
+    "fresh_s": 0.02638532600030885,
+    "fresh_peak_mb": 6.453125
    },
    {
     "op": "merge all four exchanges",
     "kind": "merge",
-    "inc_s": 0.019184976999895298,
+    "inc_s": 0.027963110000200686,
     "swept": 27908,
     "route_changed": 12300,
     "relabeled": 32394,
@@ -474,383 +1089,9 @@
     "cache_hits": 0,
     "linear_pass": 1,
     "state_mb": 25.165305137634277,
-    "fresh_s": 0.01698285800011945
-   }
-  ]
- },
- "no_cache": {
-  "build_s": 0.15251907799938635,
-  "engine_mb": 2.0078125,
-  "rows": [
-   {
-    "op": "nested-excursion merge (no-op)",
-    "kind": "merge",
-    "inc_s": 0.00019365400021342793,
-    "swept": 4,
-    "route_changed": 0,
-    "relabeled": 0,
-    "label_changed": 0,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.018916250000074797,
-    "exact": true
-   },
-   {
-    "op": "late local merge",
-    "kind": "merge",
-    "inc_s": 0.00020819200017285766,
-    "swept": 4,
-    "route_changed": 1,
-    "relabeled": 3,
-    "label_changed": 3,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017927050999787753,
-    "exact": true
-   },
-   {
-    "op": "entity discovery merge",
-    "kind": "merge",
-    "inc_s": 0.00021396900046966039,
-    "swept": 9,
-    "route_changed": 3,
-    "relabeled": 3,
-    "label_changed": 0,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.016895501000362856,
-    "exact": true
-   },
-   {
-    "op": "root merge (large early hack-1 holders)",
-    "kind": "merge",
-    "inc_s": 0.00032294799984811107,
-    "swept": 13,
-    "route_changed": 6,
-    "relabeled": 153,
-    "label_changed": 83,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.016850398999849858,
-    "exact": true
-   },
-   {
-    "op": "distant-branch merge (hack 1 x hack 2)",
-    "kind": "merge",
-    "inc_s": 0.0002495759999874281,
-    "swept": 11,
-    "route_changed": 3,
-    "relabeled": 11,
-    "label_changed": 9,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.01744047000011051,
-    "exact": true
-   },
-   {
-    "op": "absorb into exchange cluster",
-    "kind": "merge",
-    "inc_s": 0.0031648460008000256,
-    "swept": 6984,
-    "route_changed": 88,
-    "relabeled": 200,
-    "label_changed": 112,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017911277000166592,
-    "exact": true
-   },
-   {
-    "op": "overlapping merge (4 + 5a)",
-    "kind": "merge",
-    "inc_s": 0.0003275279996159952,
-    "swept": 24,
-    "route_changed": 5,
-    "relabeled": 31,
-    "label_changed": 18,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.022688572999868484,
-    "exact": true
-   },
-   {
-    "op": "split v4 out of (4+5a)",
-    "kind": "split",
-    "inc_s": 0.0003751960002773558,
-    "swept": 24,
-    "route_changed": 9,
-    "relabeled": 157,
-    "label_changed": 85,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.01842325199959305,
-    "exact": true
-   },
-   {
-    "op": "split exchange 1 in half",
-    "kind": "split",
-    "inc_s": 0.0074813200008065905,
-    "swept": 8024,
-    "route_changed": 2590,
-    "relabeled": 7801,
-    "label_changed": 4518,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.01701912699991226,
-    "exact": true
-   },
-   {
-    "op": "merge exchanges 2 + 3",
-    "kind": "merge",
-    "inc_s": 0.011767906999921252,
-    "swept": 14200,
-    "route_changed": 5122,
-    "relabeled": 14126,
-    "label_changed": 8454,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.01694026000041049,
-    "exact": true
-   },
-   {
-    "op": "undo late local merge",
-    "kind": "split",
-    "inc_s": 0.00019861900000250898,
-    "swept": 4,
-    "route_changed": 1,
-    "relabeled": 3,
-    "label_changed": 3,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.016501068000252417,
-    "exact": true
-   },
-   {
-    "op": "re-merge exchange 1",
-    "kind": "merge",
-    "inc_s": 0.007233537999127293,
-    "swept": 6839,
-    "route_changed": 2590,
-    "relabeled": 7665,
-    "label_changed": 4357,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.016565852999519848,
-    "exact": true
-   },
-   {
-    "op": "undo exchange 2 + 3 merge",
-    "kind": "split",
-    "inc_s": 0.011911815000530623,
-    "swept": 14220,
-    "route_changed": 5122,
-    "relabeled": 13933,
-    "label_changed": 8312,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017108039999584435,
-    "exact": true
-   },
-   {
-    "op": "merge all four exchanges",
-    "kind": "merge",
-    "inc_s": 0.022078013000282226,
-    "swept": 27908,
-    "route_changed": 12300,
-    "relabeled": 32394,
-    "label_changed": 16608,
-    "cache_hits": 0,
-    "linear_pass": 1,
-    "fresh_s": 0.016541042000426387,
-    "exact": true
-   }
-  ]
- },
- "no_cutoff": {
-  "build_s": 0.1545035529998131,
-  "engine_mb": 1.01171875,
-  "rows": [
-   {
-    "op": "nested-excursion merge (no-op)",
-    "kind": "merge",
-    "inc_s": 0.00020530799974949332,
-    "swept": 4,
-    "route_changed": 0,
-    "relabeled": 0,
-    "label_changed": 0,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017186627000228327,
-    "exact": true
-   },
-   {
-    "op": "late local merge",
-    "kind": "merge",
-    "inc_s": 0.0002340460005143541,
-    "swept": 4,
-    "route_changed": 1,
-    "relabeled": 3,
-    "label_changed": 3,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.016907901000195125,
-    "exact": true
-   },
-   {
-    "op": "entity discovery merge",
-    "kind": "merge",
-    "inc_s": 0.00031985799978428986,
-    "swept": 9,
-    "route_changed": 3,
-    "relabeled": 107,
-    "label_changed": 0,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017233505000149307,
-    "exact": true
-   },
-   {
-    "op": "root merge (large early hack-1 holders)",
-    "kind": "merge",
-    "inc_s": 0.00667637799961085,
-    "swept": 13,
-    "route_changed": 6,
-    "relabeled": 18518,
-    "label_changed": 83,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017421696000383236,
-    "exact": true
-   },
-   {
-    "op": "distant-branch merge (hack 1 x hack 2)",
-    "kind": "merge",
-    "inc_s": 0.00024462200053676497,
-    "swept": 11,
-    "route_changed": 3,
-    "relabeled": 13,
-    "label_changed": 9,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.01726278100068157,
-    "exact": true
-   },
-   {
-    "op": "absorb into exchange cluster",
-    "kind": "merge",
-    "inc_s": 0.0038113140008135815,
-    "swept": 6984,
-    "route_changed": 88,
-    "relabeled": 929,
-    "label_changed": 112,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017204935000336263,
-    "exact": true
-   },
-   {
-    "op": "overlapping merge (4 + 5a)",
-    "kind": "merge",
-    "inc_s": 0.0002869990003091516,
-    "swept": 24,
-    "route_changed": 5,
-    "relabeled": 62,
-    "label_changed": 18,
-    "cache_hits": 0,
-    "linear_pass": 0,
-    "fresh_s": 0.017092697000407497,
-    "exact": true
-   },
-   {
-    "op": "split v4 out of (4+5a)",
-    "kind": "split",
-    "inc_s": 0.006691511000099126,
-    "swept": 15,
-    "route_changed": 9,
-    "relabeled": 18519,
-    "label_changed": 85,
-    "cache_hits": 1,
-    "linear_pass": 0,
-    "fresh_s": 0.016610294000201975,
-    "exact": true
-   },
-   {
-    "op": "split exchange 1 in half",
-    "kind": "split",
-    "inc_s": 0.02169174699974974,
-    "swept": 8024,
-    "route_changed": 2590,
-    "relabeled": 70046,
-    "label_changed": 4518,
-    "cache_hits": 0,
-    "linear_pass": 1,
-    "fresh_s": 0.0172173559994917,
-    "exact": true
-   },
-   {
-    "op": "merge exchanges 2 + 3",
-    "kind": "merge",
-    "inc_s": 0.024803455999972357,
-    "swept": 14200,
-    "route_changed": 5122,
-    "relabeled": 71944,
-    "label_changed": 8454,
-    "cache_hits": 0,
-    "linear_pass": 1,
-    "fresh_s": 0.017608721999749832,
-    "exact": true
-   },
-   {
-    "op": "undo late local merge",
-    "kind": "split",
-    "inc_s": 0.00019813800008705584,
-    "swept": 0,
-    "route_changed": 1,
-    "relabeled": 3,
-    "label_changed": 3,
-    "cache_hits": 2,
-    "linear_pass": 0,
-    "fresh_s": 0.017010735000440036,
-    "exact": true
-   },
-   {
-    "op": "re-merge exchange 1",
-    "kind": "merge",
-    "inc_s": 0.01946076200056268,
-    "swept": 0,
-    "route_changed": 2590,
-    "relabeled": 69914,
-    "label_changed": 4357,
-    "cache_hits": 1,
-    "linear_pass": 1,
-    "fresh_s": 0.016772889000094438,
-    "exact": true
-   },
-   {
-    "op": "undo exchange 2 + 3 merge",
-    "kind": "split",
-    "inc_s": 0.021355372000471107,
-    "swept": 0,
-    "route_changed": 5122,
-    "relabeled": 71158,
-    "label_changed": 8312,
-    "cache_hits": 2,
-    "linear_pass": 1,
-    "fresh_s": 0.01724978399943211,
-    "exact": true
-   },
-   {
-    "op": "merge all four exchanges",
-    "kind": "merge",
-    "inc_s": 0.028385536999849137,
-    "swept": 27908,
-    "route_changed": 12300,
-    "relabeled": 76865,
-    "label_changed": 16608,
-    "cache_hits": 0,
-    "linear_pass": 1,
-    "fresh_s": 0.016858174999470066,
-    "exact": true
+    "inc_peak_mb": 7.4453125,
+    "fresh_s": 0.021210806000453886,
+    "fresh_peak_mb": 6.45703125
    }
   ]
  }

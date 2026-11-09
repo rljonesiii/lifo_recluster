@@ -1,20 +1,50 @@
-$ python3 bench.py 10000 --mem --ablate --out results/n10000.json
-{"n": 10000, "wallets": 4709, "clusters": 3838, "largest_cluster_members": [104, 107, 118, 119], "largest_cluster_events": [672, 696, 721, 738], "internal_tx": 1043, "stolen_carrying_tx": 2203, "max_hops": 28, "median_hops": 11, "p90_hops": 19, "stolen_exchange_deposits": 266, "exchange_deposits_ge20_hops": 17, "gen_s": 0.02525071800027945, "ledger_mb": 0.87109375, "ledger_traced_mb": 1.0859565734863281}
-nested-excursion merge (no-op)             inc       0.1 ms  fresh      15.2 ms  x   186.1  swept       4 routes      0 relab       0 changed       0 cache 0 linear 0 ok=True
-late local merge                           inc       0.1 ms  fresh      11.4 ms  x   110.4  swept       8 routes      5 relab       7 changed       3 cache 0 linear 0 ok=True
-entity discovery merge                     inc       0.1 ms  fresh       9.9 ms  x    75.6  swept      14 routes      8 relab      16 changed       6 cache 0 linear 0 ok=True
-root merge (large early hack-1 holders)    inc       0.4 ms  fresh       9.3 ms  x    23.8  swept      19 routes      3 relab      96 changed      51 cache 0 linear 0 ok=True
-distant-branch merge (hack 1 x hack 2)     inc       0.1 ms  fresh       9.5 ms  x    94.5  swept       6 routes      1 relab       5 changed       4 cache 0 linear 0 ok=True
-absorb into exchange cluster               inc       1.8 ms  fresh       9.4 ms  x     5.3  swept     746 routes     26 relab     438 changed     411 cache 0 linear 0 ok=True
-overlapping merge (4 + 5a)                 inc       0.1 ms  fresh       9.4 ms  x    80.1  swept      25 routes      2 relab       8 changed       6 cache 0 linear 0 ok=True
-split v4 out of (4+5a)                     inc       0.3 ms  fresh      12.1 ms  x    41.8  swept      13 routes      5 relab     104 changed      57 cache 1 linear 0 ok=True
-split exchange 1 in half                   inc       3.3 ms  fresh      12.2 ms  x     3.7  swept     792 routes    254 relab     589 changed     328 cache 0 linear 0 ok=True
-merge exchanges 2 + 3                      inc       4.0 ms  fresh       9.7 ms  x     2.4  swept    1413 routes    521 relab    1117 changed     662 cache 0 linear 0 ok=True
-undo late local merge                      inc       0.1 ms  fresh       9.6 ms  x   164.6  swept       0 routes      5 relab       7 changed       3 cache 2 linear 0 ok=True
-re-merge exchange 1                        inc       1.5 ms  fresh       9.7 ms  x     6.6  swept       0 routes    254 relab     593 changed     330 cache 1 linear 0 ok=True
-undo exchange 2 + 3 merge                  inc       2.6 ms  fresh       9.5 ms  x     3.7  swept       0 routes    521 relab    1137 changed     673 cache 2 linear 0 ok=True
-merge all four exchanges                   inc       9.0 ms  fresh      10.0 ms  x     1.1  swept    2820 routes   1279 relab    4006 changed    1877 cache 0 linear 1 ok=True
+$ uv run python bench.py 10000 --repeat 5 --mem --ablate --out results/n10000.json
+machine: {"cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz", "logical_cpus": 2, "ram_gb": 7.8, "os": "Linux-6.18.44-fc-v310-x86_64-with-glibc2.39", "python": "3.12.3", "numpy": "2.5.4", "numba": "0.68.1"}
+{"n": 10000, "wallets": 4709, "clusters": 3838, "largest_cluster_members": [104, 107, 118, 119], "largest_cluster_events": [672, 696, 721, 738], "internal_tx": 1043, "stolen_carrying_tx": 2203, "max_hops": 28, "median_hops": 11, "p90_hops": 19, "stolen_exchange_deposits": 266, "exchange_deposits_ge20_hops": 17, "pieces": 12601, "runs": 12034, "max_pieces": 19, "max_runs": 15, "gen_s": 0.04161473600015597, "ledger_mb": 0.87109375, "ledger_traced_mb": 1.0859413146972656}
+times are medians of 5 runs
+nested-excursion merge (no-op)             inc      0.10 ms  fresh      10.5 ms  x   107.3  swept       4 routes      0 relab       0 changed       0 cache 0 linear 0 ok=True
+late local merge                           inc      0.13 ms  fresh      10.2 ms  x    76.4  swept       8 routes      5 relab       7 changed       3 cache 0 linear 0 ok=True
+entity discovery merge                     inc      0.21 ms  fresh      11.0 ms  x    53.5  swept      14 routes      8 relab      16 changed       6 cache 0 linear 0 ok=True
+root merge (large early hack-1 holders)    inc      0.48 ms  fresh      11.0 ms  x    23.0  swept      19 routes      3 relab      96 changed      51 cache 0 linear 0 ok=True
+distant-branch merge (hack 1 x hack 2)     inc      0.13 ms  fresh      11.0 ms  x    84.0  swept       6 routes      1 relab       5 changed       4 cache 0 linear 0 ok=True
+absorb into exchange cluster               inc      1.88 ms  fresh      10.9 ms  x     5.8  swept     746 routes     26 relab     438 changed     411 cache 0 linear 0 ok=True
+overlapping merge (4 + 5a)                 inc      0.16 ms  fresh      10.3 ms  x    64.2  swept      25 routes      2 relab       8 changed       6 cache 0 linear 0 ok=True
+split v4 out of (4+5a)                     inc      0.39 ms  fresh      10.8 ms  x    27.8  swept      13 routes      5 relab     104 changed      57 cache 1 linear 0 ok=True
+split exchange 1 in half                   inc      2.46 ms  fresh      10.6 ms  x     4.3  swept     792 routes    254 relab     589 changed     328 cache 0 linear 0 ok=True
+merge exchanges 2 + 3                      inc      4.53 ms  fresh      11.3 ms  x     2.5  swept    1413 routes    521 relab    1117 changed     662 cache 0 linear 0 ok=True
+undo late local merge                      inc      0.09 ms  fresh      12.4 ms  x   142.2  swept       0 routes      5 relab       7 changed       3 cache 2 linear 0 ok=True
+re-merge exchange 1                        inc      1.68 ms  fresh      10.8 ms  x     6.4  swept       0 routes    254 relab     593 changed     330 cache 1 linear 0 ok=True
+undo exchange 2 + 3 merge                  inc      2.85 ms  fresh      10.5 ms  x     3.7  swept       0 routes    521 relab    1137 changed     673 cache 2 linear 0 ok=True
+merge all four exchanges                   inc      9.38 ms  fresh      11.0 ms  x     1.2  swept    2820 routes   1279 relab    4006 changed    1877 cache 0 linear 1 ok=True
 build 0.03s engine 1 MB
+  no_cache  nested-excursion merge (no-op)             inc       0.1 ms swept       4 relab       0 linear 0 ok=True
+  no_cache  late local merge                           inc       0.1 ms swept       8 relab       7 linear 0 ok=True
+  no_cache  entity discovery merge                     inc       0.2 ms swept      14 relab      16 linear 0 ok=True
+  no_cache  root merge (large early hack-1 holders)    inc       0.4 ms swept      19 relab      96 linear 0 ok=True
+  no_cache  distant-branch merge (hack 1 x hack 2)     inc       0.1 ms swept       6 relab       5 linear 0 ok=True
+  no_cache  absorb into exchange cluster               inc       1.9 ms swept     746 relab     438 linear 0 ok=True
+  no_cache  overlapping merge (4 + 5a)                 inc       0.2 ms swept      25 relab       8 linear 0 ok=True
+  no_cache  split v4 out of (4+5a)                     inc       0.5 ms swept      25 relab     104 linear 0 ok=True
+  no_cache  split exchange 1 in half                   inc       2.5 ms swept     792 relab     589 linear 0 ok=True
+  no_cache  merge exchanges 2 + 3                      inc       4.2 ms swept    1413 relab    1117 linear 0 ok=True
+  no_cache  undo late local merge                      inc       0.1 ms swept       8 relab       7 linear 0 ok=True
+  no_cache  re-merge exchange 1                        inc       2.4 ms swept     672 relab     593 linear 0 ok=True
+  no_cache  undo exchange 2 + 3 merge                  inc       4.2 ms swept    1417 relab    1137 linear 0 ok=True
+  no_cache  merge all four exchanges                   inc      10.4 ms swept    2820 relab    4006 linear 1 ok=True
+  no_cutoff nested-excursion merge (no-op)             inc       0.1 ms swept       4 relab       0 linear 0 ok=True
+  no_cutoff late local merge                           inc       0.2 ms swept       8 relab      11 linear 0 ok=True
+  no_cutoff entity discovery merge                     inc       0.5 ms swept      14 relab     177 linear 0 ok=True
+  no_cutoff root merge (large early hack-1 holders)    inc       3.5 ms swept      19 relab    2044 linear 0 ok=True
+  no_cutoff distant-branch merge (hack 1 x hack 2)     inc       0.2 ms swept       6 relab       5 linear 0 ok=True
+  no_cutoff absorb into exchange cluster               inc       2.0 ms swept     746 relab     460 linear 0 ok=True
+  no_cutoff overlapping merge (4 + 5a)                 inc       0.3 ms swept      25 relab      25 linear 0 ok=True
+  no_cutoff split v4 out of (4+5a)                     inc       3.6 ms swept      13 relab    2254 linear 0 ok=True
+  no_cutoff split exchange 1 in half                   inc       7.5 ms swept     792 relab    7152 linear 1 ok=True
+  no_cutoff merge exchanges 2 + 3                      inc       9.0 ms swept    1413 relab    7282 linear 1 ok=True
+  no_cutoff undo late local merge                      inc       0.2 ms swept       0 relab      12 linear 0 ok=True
+  no_cutoff re-merge exchange 1                        inc       8.7 ms swept       0 relab    7080 linear 1 ok=True
+  no_cutoff undo exchange 2 + 3 merge                  inc       8.9 ms swept       0 relab    7265 linear 1 ok=True
+  no_cutoff merge all four exchanges                   inc      16.9 ms swept    2820 relab    8067 linear 1 ok=True
   mem build: ledger 1.1 MB, engine 3.8 MB (peak while building 4.0 MB), traced
   mem nested-excursion merge (no-op)             inc peak     0.00 MB   fresh peak     1.91 MB
   mem late local merge                           inc peak     0.01 MB   fresh peak     1.91 MB
@@ -30,33 +60,4 @@ build 0.03s engine 1 MB
   mem re-merge exchange 1                        inc peak     0.06 MB   fresh peak     1.91 MB
   mem undo exchange 2 + 3 merge                  inc peak     0.08 MB   fresh peak     1.90 MB
   mem merge all four exchanges                   inc peak     0.70 MB   fresh peak     1.92 MB
-  no_cache  nested-excursion merge (no-op)             inc       0.1 ms swept       4 relab       0 linear 0 ok=True
-  no_cache  late local merge                           inc       0.1 ms swept       8 relab       7 linear 0 ok=True
-  no_cache  entity discovery merge                     inc       0.1 ms swept      14 relab      16 linear 0 ok=True
-  no_cache  root merge (large early hack-1 holders)    inc       0.4 ms swept      19 relab      96 linear 0 ok=True
-  no_cache  distant-branch merge (hack 1 x hack 2)     inc       0.1 ms swept       6 relab       5 linear 0 ok=True
-  no_cache  absorb into exchange cluster               inc       1.6 ms swept     746 relab     438 linear 0 ok=True
-  no_cache  overlapping merge (4 + 5a)                 inc       0.1 ms swept      25 relab       8 linear 0 ok=True
-  no_cache  split v4 out of (4+5a)                     inc       0.3 ms swept      25 relab     104 linear 0 ok=True
-  no_cache  split exchange 1 in half                   inc       2.2 ms swept     792 relab     589 linear 0 ok=True
-  no_cache  merge exchanges 2 + 3                      inc       4.1 ms swept    1413 relab    1117 linear 0 ok=True
-  no_cache  undo late local merge                      inc       0.1 ms swept       8 relab       7 linear 0 ok=True
-  no_cache  re-merge exchange 1                        inc       2.2 ms swept     672 relab     593 linear 0 ok=True
-  no_cache  undo exchange 2 + 3 merge                  inc       4.0 ms swept    1417 relab    1137 linear 0 ok=True
-  no_cache  merge all four exchanges                   inc       9.5 ms swept    2820 relab    4006 linear 1 ok=True
-  no_cutoff nested-excursion merge (no-op)             inc       0.1 ms swept       4 relab       0 linear 0 ok=True
-  no_cutoff late local merge                           inc       0.2 ms swept       8 relab      11 linear 0 ok=True
-  no_cutoff entity discovery merge                     inc       0.3 ms swept      14 relab     177 linear 0 ok=True
-  no_cutoff root merge (large early hack-1 holders)    inc       3.7 ms swept      19 relab    2044 linear 0 ok=True
-  no_cutoff distant-branch merge (hack 1 x hack 2)     inc       0.1 ms swept       6 relab       5 linear 0 ok=True
-  no_cutoff absorb into exchange cluster               inc       2.4 ms swept     746 relab     460 linear 0 ok=True
-  no_cutoff overlapping merge (4 + 5a)                 inc       0.2 ms swept      25 relab      25 linear 0 ok=True
-  no_cutoff split v4 out of (4+5a)                     inc       4.4 ms swept      13 relab    2254 linear 0 ok=True
-  no_cutoff split exchange 1 in half                   inc       7.1 ms swept     792 relab    7152 linear 1 ok=True
-  no_cutoff merge exchanges 2 + 3                      inc       8.4 ms swept    1413 relab    7282 linear 1 ok=True
-  no_cutoff undo late local merge                      inc       0.1 ms swept       0 relab      12 linear 0 ok=True
-  no_cutoff re-merge exchange 1                        inc       6.4 ms swept       0 relab    7080 linear 1 ok=True
-  no_cutoff undo exchange 2 + 3 merge                  inc       6.9 ms swept       0 relab    7265 linear 1 ok=True
-  no_cutoff merge all four exchanges                   inc      11.1 ms swept    2820 relab    8067 linear 1 ok=True
-(exit 0, 4 s wall)
-
+(exit 0, 10 s wall)

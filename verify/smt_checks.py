@@ -14,25 +14,21 @@ Part 1  T6, run-length representation.  Every branch of lifo.sweep's per-event c
           - a read leaves the stack unchanged; a push appends exactly t's own units;
           - no path can run off the bottom of the stack (the precondition a <= height
             is enough).
-Part 2  T1 and T5, the arithmetic of the induction step.  Stacks are summarized by their
-        height and stolen count; that an inflow adds and an outflow removes exactly the units
-        the transaction carries is the content of Part 1 (T6), not re-derived here.  For one cluster C and one transaction
-        of each kind (deposit into C, transfer into C, transfer out of C, internal to C,
-        unrelated), Z3 proves for all values that the invariant
-            stack height = sum of C's wallet balances  and
-            stolen units on the stack = sum of C's wallets' net stolen flows
-        is preserved, and that every read or pop C performs is defined.  The invariant holds
-        initially (all zero), so it holds after every transaction of every ledger.
-Part 3  T3, push order.  For a = 1..5 and every permutation pi of a units, Z3 proves that
+Part 2  T3, push order.  For a = 1..5 and every permutation pi of a units, Z3 proves that
         popping the top a units and pushing them back in order pi leaves every possible
         label sequence unchanged if and only if pi is the identity.
+
+T1 (conservation) and T5 (holdings) are not checked here: their induction steps are plain
+arithmetic once each transaction's effect on the stack is known, which is what Part 1
+proves.  They rest on their written proofs, and verify/exhaustive.py asserts both on the
+specification in every case of its scope.
 """
 import argparse
 import itertools
 import sys
 import time
 
-from z3 import And, Implies, Int, Ints, Bool, Not, Or, If, Solver, Sum, sat, unsat
+from z3 import And, Int, Ints, Bool, Not, If, Solver, Sum, sat, unsat
 
 
 class NeedDecision(Exception):
@@ -215,43 +211,7 @@ def check_push(k):
 
 
 # ------------------------------------------------------------------- Part 2
-def part2():
-    """Induction step for T1 (stack height = balances; reads and pops defined) and
-    T5 (stolen units on the stack = net stolen flow), one transaction, all kinds."""
-    H, S, Bal, Net, a, sig, bal_src, rest = Ints("H S Bal Net a sigma bal_src rest")
-    cases = 0
-    kinds = ["deposit into C", "transfer into C", "transfer out of C", "internal to C",
-             "unrelated to C"]
-    for kind in kinds:
-        inv = And(H == Bal, S == Net)
-        valid = [a >= 1, sig >= 0, sig <= a]
-        if kind in ("transfer out of C", "internal to C"):
-            # the sender is a member of C with enough balance; other members are >= 0
-            valid += [bal_src >= a, rest >= 0, Bal == bal_src + rest]
-        if kind == "transfer into C":
-            valid += [bal_src >= a]   # the sender (outside C) can pay
-        # semantics of the stack of C, and the definitions of balance and net flow
-        if kind in ("deposit into C", "transfer into C"):
-            H2, S2, Bal2, Net2 = H + a, S + sig, Bal + a, Net + sig
-            defined = True
-        elif kind == "transfer out of C":
-            H2, S2, Bal2, Net2 = H - a, S - sig, Bal - a, Net - sig
-            defined = H >= a
-        elif kind == "internal to C":
-            H2, S2, Bal2, Net2 = H, S, Bal - a + a, Net - sig + sig
-            defined = H >= a
-        else:
-            H2, S2, Bal2, Net2 = H, S, Bal, Net
-            defined = True
-        assert feasible([inv] + valid), f"vacuous precondition for {kind}"
-        prove([inv] + valid, And(defined, H2 == Bal2, S2 == Net2))
-        cases += 1
-    prove([H == 0, Bal == 0, S == 0, Net == 0], And(H == Bal, S == Net))  # base case
-    return cases
-
-
-# ------------------------------------------------------------------- Part 3
-def part3(max_a=5):
+def part2(max_a=5):
     perms = 0
     for a in range(1, max_a + 1):
         labels = [Bool(f"x{i}") for i in range(a)]
@@ -378,8 +338,7 @@ def main():
         sys.stdout.flush()
     print(f"Part 1  T6: {paths} feasible paths of the sweep's event code proved, stacks of 0-{a.depth} "
           f"blocks, all inflow ids, block sizes and amounts")
-    print(f"Part 2  T1, T5: induction-step arithmetic proved for all {part2()} transaction kinds, plus the base case")
-    print(f"Part 3  T3: {part3()} push orders checked for a = 1..5; only the order-preserving push "
+    print(f"Part 2  T3: {part2()} push orders checked for a = 1..5; only the order-preserving push "
           f"leaves every label sequence unchanged")
     print(f"all SMT obligations discharged by Z3 in {time.time() - t0:.0f} s")
 

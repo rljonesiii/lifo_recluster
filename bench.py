@@ -1,26 +1,33 @@
 """Scaling benchmark: incremental reclustering vs fresh full LIFO trace.
 
-python3 bench.py N [--seed S] [--mem] [--ablate] [--nb] [--out results.json]
+python3 bench.py N [--seed S] [--repeat K] [--mem] [--ablate] [--nb] [--out results.json]
 
 For one synthetic network of N transactions, builds the engine, then applies a fixed
 script of reclustering operations.  After every operation it times the incremental
 update, times a fresh trace under the new clustering, and checks that per-transaction
-attribution and per-cluster holdings are identical.  --mem repeats the script with
-tracemalloc to record the memory the ledger and the engine hold after building, and
-the peak memory of each operation and fresh trace (timings come from the untraced run).
---ablate repeats the script twice more: routing cache off, and equality cutoff off.
---nb runs the compiled engine (lifo_nb) against the compiled fresh trace, compares the
-two label arenas in compiled code, and reports compile time separately; tracemalloc
-cannot see memory Numba allocates, so --mem then records the exact size of the engine's
-arrays (state and routing cache, headroom included; the ledger's own arrays separately)
-after building and after each operation.  The RSS growth printed with the build time
-is a rough figure for both engines (it depends on the allocator).
+attribution and per-cluster holdings are identical.  --repeat K runs that timed script K
+times on fresh engines and keeps, for every operation and its fresh trace, the median time
+(the work counters, which never vary, are checked equal across runs; every run's times are
+kept too).  --ablate repeats the script twice more: routing cache off, and equality cutoff off.  --mem then repeats it once more to
+measure memory (timings always come from the untraced first run).  The machine, the
+library versions and the seed are recorded with the results.
+
+Memory, reference engine: tracemalloc gives what the ledger and the engine hold after
+building, and the peak of each operation and each fresh trace above what was held
+before it.  Compiled engine (--nb): tracemalloc cannot see memory Numba allocates, so
+--mem records the exact size of the engine's arrays (state and routing cache, headroom
+included; the ledger's own arrays separately) after building and after each operation,
+and, on Linux, the peak of each step as the growth of the process's peak resident set
+(VmHWM, reset before the step).  For that run every allocation over 64 KiB is served by
+mmap, and free heap memory is handed back to the system before each step, so memory freed
+earlier cannot be reused unseen and the resident set follows live memory.  The RSS growth printed with the build time is a rough figure for both engines.
 """
 import argparse
 import gc
 import json
 import os
 import random
+import statistics
 import time
 import tracemalloc
 
@@ -36,25 +43,65 @@ def rss_mb():
     return psutil.Process(os.getpid()).memory_info().rss / 2**20
 
 
+def machine():
+    """What the numbers were measured on."""
+    import platform
+    import numpy
+    cpu = platform.processor() or platform.machine()
+    if os.path.exists("/proc/cpuinfo"):
+        with open("/proc/cpuinfo") as f:
+            cpu = next((ln.split(":", 1)[1].strip() for ln in f if ln.startswith("model name")), cpu)
+    try:
+        import numba
+        nb = numba.__version__
+    except ImportError:
+        nb = None
+    return dict(cpu=cpu, logical_cpus=os.cpu_count(), ram_gb=round(psutil.virtual_memory().total / 2**30, 1),
+                os=platform.platform(), python=platform.python_version(), numpy=numpy.__version__, numba=nb)
+
+
+# Peak memory of one step of the compiled engine (Linux): reset the process's peak resident
+# set, run the step, read how far the peak rose above where it started.
+PEAK_RSS = os.path.exists("/proc/self/clear_refs")
+
+
+def _status_mb(key):
+    with open("/proc/self/status") as f:
+        return next(int(ln.split()[1]) for ln in f if ln.startswith(key)) / 1024
+
+
+def peak_start():
+    """Hand free heap memory back to the system, so that memory freed by earlier steps
+    cannot be reused without showing up, then reset the peak and return the current size."""
+    libc = _libc()
+    if libc is not None:
+        libc.malloc_trim(0)
+    with open("/proc/self/clear_refs", "w") as f:
+        f.write("5")
+    return _status_mb("VmRSS")
+
+
+def peak_since(base):
+    return _status_mb("VmHWM") - base
+
+
+def _libc():
+    import ctypes
+    try:
+        return ctypes.CDLL("libc.so.6")
+    except OSError:
+        return None
+
+
+def mmap_large_allocations():
+    """glibc: serve every allocation over 64 KiB with mmap (fixed threshold, no trimming
+    delay), so memory freed by a step is returned at once and the next step's peak counts
+    only what that step holds."""
+    libc = _libc()
+    return libc is not None and bool(libc.mallopt(-3, 64 * 1024)) and bool(libc.mallopt(-1, 0))  # M_MMAP_THRESHOLD, M_TRIM_THRESHOLD
+
+
 # ------------------------------------------------------------- choosing operations
-def balance_intervals(L, w):
-    out = []
-    b = 0
-    start = None
-    for t in L.wev[w]:
-        if L.dst[t] == w:
-            if b == 0:
-                start = t
-            b += L.amt[t]
-        else:
-            b -= L.amt[t]
-            if b == 0:
-                out.append((start, t))
-    if b:
-        out.append((start, L.n))
-    return out
-
-
 def last_inflows(L, w):
     """(time, balance-after) of each event of w, for interaction checks."""
     out = []
@@ -212,6 +259,21 @@ def pick_ops(L, eng, meta, seed):
 
 
 # ------------------------------------------------------------------------ running
+def median_of(runs):
+    """One result from several timed runs of the same script: each time is the median over
+    the runs, and every other field must be the same in all of them."""
+    first = runs[0]
+    rows = []
+    for k, row in enumerate(first["rows"]):
+        same = [r["rows"][k] for r in runs]
+        fixed = {f: v for f, v in row.items() if not f.endswith("_s")}
+        assert all({f: v for f, v in r.items() if not f.endswith("_s")} == fixed for r in same), row["op"]
+        rows.append(dict(row, inc_s=statistics.median(r["inc_s"] for r in same),
+                         fresh_s=statistics.median(r["fresh_s"] for r in same),
+                         inc_runs=[r["inc_s"] for r in same], fresh_runs=[r["fresh_s"] for r in same]))
+    return dict(first, build_s=statistics.median(r["build_s"] for r in runs), repeats=len(runs), rows=rows)
+
+
 def state_mb(eng):
     """The compiled engine's own arrays, routing cache included (not the ledger's)."""
     arrays = [v for v in vars(eng).values() if hasattr(v, "nbytes")]
@@ -225,8 +287,10 @@ def ledger_arrays_mb(eng):
 
 def run_compiled(L, clusters, ops, mem=False, verify=True, **engine_kw):
     import lifo_nb
+    peaks = mem and PEAK_RSS and mmap_large_allocations()
     gc.collect()
     r0 = rss_mb()
+    base = peak_start() if peaks else None
     t0 = time.perf_counter()
     eng = lifo_nb.Engine(L, clusters, **engine_kw)
     build = time.perf_counter() - t0
@@ -234,26 +298,36 @@ def run_compiled(L, clusters, ops, mem=False, verify=True, **engine_kw):
     eng_mb = rss_mb() - r0
     out = dict(build_s=build, engine_mb=eng_mb)
     if mem:
-        out.update(build_state_mb=state_mb(eng), ledger_arrays_mb=ledger_arrays_mb(eng))
+        out.update(build_state_mb=state_mb(eng), ledger_arrays_mb=ledger_arrays_mb(eng),
+                   peak_method="peak resident set (VmHWM)" if peaks else None)
+    if peaks:
+        out["build_peak_mb"] = peak_since(base)
     eng.reset_stats()
     rows = []
     for name, kind, ws in ops:
         gc.collect()
+        base = peak_start() if peaks else None
         t0 = time.perf_counter()
         if kind == "merge":
             eng.merge(ws)
         else:
             eng.split(ws)
         inc = time.perf_counter() - t0
+        peak = peak_since(base) if peaks else None
         st = eng.reset_stats()
         st.pop("compactions")
         row = dict(op=name, kind=kind, inc_s=inc, **st)
         if mem:
             row["state_mb"] = state_mb(eng)
+        if peaks:
+            row["inc_peak_mb"] = peak
         gc.collect()
+        base = peak_start() if peaks else None
         t0 = time.perf_counter()
         fs, fl, FL, fhold = lifo_nb.fresh_trace_arrays(eng.A, eng.owner, eng.hold.shape[0])
         row["fresh_s"] = time.perf_counter() - t0
+        if peaks:
+            row["fresh_peak_mb"] = peak_since(base)
         if verify:
             ok = lifo_nb._labels_differ(eng.ls, eng.ll, eng.LB, fs, fl, FL) < 0 and \
                 all(int(fhold[c]) == int(eng.hold[c]) for c in eng.members)
@@ -279,7 +353,7 @@ def run_script(L, clusters, ops, mem=False, verify=True, compiled=False, **engin
     out = dict(build_s=build, engine_mb=eng_mb)
     if mem:
         cur, peak = tracemalloc.get_traced_memory()
-        out.update(build_traced_mb=cur / 2**20, build_peak_mb=peak / 2**20)
+        out.update(build_traced_mb=cur / 2**20, build_peak_mb=peak / 2**20, peak_method="tracemalloc")
     eng.reset_stats()
     rows = []
     for name, kind, ws in ops:
@@ -323,11 +397,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("n", type=int)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--mem", action="store_true")
     ap.add_argument("--ablate", action="store_true")
     ap.add_argument("--nb", action="store_true")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
+    mach = machine()
+    print("machine: " + json.dumps(mach))
     compile_s = None
     if a.nb:  # compile every kernel once on a small ledger, outside the timings
         import lifo_nb
@@ -383,39 +460,33 @@ def main():
                stolen_carrying_tx=stolen_tx, max_hops=ds[-1], median_hops=ds[len(ds) // 2],
                p90_hops=ds[int(0.9 * len(ds))], stolen_exchange_deposits=len(to_ex),
                exchange_deposits_ge20_hops=sum(1 for d in to_ex if d >= 20),
+               pieces=sum(len(p) // 3 for p in eng0.route if p),  # P: route pieces = reader entries
+               runs=sum(len(x) // 2 for x in eng0.labels if x),    # R: label runs
+               max_pieces=max(len(p) // 3 for p in eng0.route if p),
+               max_runs=max(len(x) // 2 for x in eng0.labels if x),
                gen_s=gen_s, ledger_mb=ledger_mb, ledger_traced_mb=ledger_traced_mb)
     del eng0, depth, cl
     gc.collect()
     print(json.dumps(net))
 
-    res, eng = run_script(L, clusters, ops, compiled=a.nb)
-    del eng
-    gc.collect()
-    result = dict(network=net, ops=[(o[0], o[1], len(o[2])) for o in ops], main=res,
+    runs = []
+    for _ in range(a.repeat):
+        r1, eng = run_script(L, clusters, ops, compiled=a.nb)
+        del eng
+        gc.collect()
+        runs.append(r1)
+    res = median_of(runs)
+    result = dict(machine=mach, seed=a.seed, network=net, ops=[(o[0], o[1], len(o[2])) for o in ops], main=res,
                   engine="lifo_nb (compiled)" if a.nb else "lifo (pure Python)",
                   compile_s=compile_s)
+    if a.repeat > 1:
+        print(f"times are medians of {a.repeat} runs")
     for r in res["rows"]:
-        print(f"{r['op']:<42} inc {r['inc_s']*1000:9.1f} ms  fresh {r['fresh_s']*1000:9.1f} ms  "
+        print(f"{r['op']:<42} inc {r['inc_s']*1000:9.2f} ms  fresh {r['fresh_s']*1000:9.1f} ms  "
               f"x{r['fresh_s']/max(r['inc_s'],1e-9):8.1f}  swept {r['swept']:>7} "
               f"routes {r['route_changed']:>6} relab {r['relabeled']:>7} changed {r['label_changed']:>7} "
               f"cache {r['cache_hits']} linear {r['linear_pass']} ok={r['exact']}")
     print(f"build {res['build_s']:.2f}s engine {res['engine_mb']:.0f} MB")
-    if a.mem:
-        mres, eng = run_script(L, clusters, ops, mem=True, verify=False, compiled=a.nb)
-        del eng
-        gc.collect()
-        result["mem"] = mres
-        if a.nb:
-            print(f"  mem build: engine arrays {mres['build_state_mb']:.1f} MB, ledger arrays "
-                  f"{mres['ledger_arrays_mb']:.1f} MB")
-        else:
-            print(f"  mem build: ledger {ledger_traced_mb:.1f} MB, engine {mres['build_traced_mb']:.1f} MB "
-                  f"(peak while building {mres['build_peak_mb']:.1f} MB), traced")
-        for r in mres["rows"]:
-            if a.nb:
-                print(f"  mem {r['op']:<42} engine state after {r['state_mb']:8.1f} MB")
-            else:
-                print(f"  mem {r['op']:<42} inc peak {r['inc_peak_mb']:8.2f} MB   fresh peak {r['fresh_peak_mb']:8.2f} MB")
     if a.ablate:
         for key, kw in (("no_cache", dict(cache_budget=0)), ("no_cutoff", dict(cutoff=False))):
             ares, eng = run_script(L, clusters, ops, compiled=a.nb, **kw)
@@ -425,6 +496,22 @@ def main():
             for r in ares["rows"]:
                 print(f"  {key:<9} {r['op']:<42} inc {r['inc_s']*1000:9.1f} ms swept {r['swept']:>7} "
                       f"relab {r['relabeled']:>7} linear {r['linear_pass']} ok={r['exact']}")
+    if a.mem:  # last, so that its allocator settings cannot touch the timed runs
+        mres, eng = run_script(L, clusters, ops, mem=True, verify=False, compiled=a.nb)
+        del eng
+        gc.collect()
+        result["mem"] = mres
+        if a.nb:
+            print(f"  mem build: engine arrays {mres['build_state_mb']:.1f} MB, ledger arrays "
+                  f"{mres['ledger_arrays_mb']:.1f} MB, peak {mres.get('build_peak_mb', float('nan')):.1f} MB")
+        else:
+            print(f"  mem build: ledger {ledger_traced_mb:.1f} MB, engine {mres['build_traced_mb']:.1f} MB "
+                  f"(peak while building {mres['build_peak_mb']:.1f} MB), traced")
+        for r in mres["rows"]:
+            state = f"engine state after {r['state_mb']:8.1f} MB   " if a.nb else ""
+            peaks = (f"inc peak {r['inc_peak_mb']:8.2f} MB   fresh peak {r['fresh_peak_mb']:8.2f} MB"
+                     if "inc_peak_mb" in r else "")
+            print(f"  mem {r['op']:<42} {state}{peaks}")
     if a.out:
         with open(a.out, "w") as f:
             json.dump(result, f, indent=1)
