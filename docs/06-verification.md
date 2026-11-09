@@ -27,7 +27,7 @@
 
 The engine settings rotate (defaults, an aggressive linear pass, a tiny or empty cache, no cutoff), so each mechanism is also tested on its own.
 
-With `--nb`, the compiled engine runs **in lockstep** with the reference ([`lockstep`](../test_engine.py#L151)): after every step the two must agree on their whole state, cache order and work counters included, and the compiled engine's hidden state must stay consistent. Every run, with or without `--nb`, then goes on to [`targeted`](../test_engine.py#L239) tests of the edges (amounts near the 64-bit limit, every kind of threshold, the holdings array growing), and to [`validation`](../test_engine.py#L350), which checks that bad input is rejected before anything changes.
+With `--nb`, the compiled engine runs **in lockstep** with the reference ([`lockstep`](../test_engine.py#L151)): after every step the two must agree on their whole state, cache order and work counters included, and the compiled engine's hidden state must stay consistent. Every run, with or without `--nb`, then goes on to [`targeted`](../test_engine.py#L239) tests of the edges (amounts near the 64-bit limit, every kind of threshold, the holdings array growing), and to [`validation`](../test_engine.py#L365), which checks that bad input is rejected before anything changes.
 
 ## 3. Z3 proofs of the sweep
 

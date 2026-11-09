@@ -117,7 +117,7 @@ Building the engine produces an exact state directly: one sweep per cluster, the
 
 **Theorem 8 (incremental correctness).** If the state is exact for 𝒫 and `regroup(blocks)` turns 𝒫 into 𝒫′, the resulting state is exact for 𝒫′.
 
-*Proof.* Let *A* be the clusters of 𝒫 that meet the blocks, and *A*′ the clusters that replace them. They cover the same wallets, and every other cluster belongs to both 𝒫 and 𝒫′. Say "old" for labels under 𝒫 and "new" for labels under 𝒫′.
+*Proof.* A block that is already a cluster of 𝒫 is dropped first: that cluster belongs to both 𝒫 and 𝒫′, so nothing changes for it. Let *A* be the clusters of 𝒫 that meet the remaining blocks, and *A*′ the clusters that replace them. They cover the same wallets, and every other cluster belongs to both 𝒫 and 𝒫′. Say "old" for labels under 𝒫 and "new" for labels under 𝒫′.
 
 *Routes.* The engine writes route(*t*) only for transactions sent by the new clusters. A transaction sent from outside *A* therefore keeps its route, which is still its 𝒫′ route because its sending cluster is unchanged (Theorem 4). For a transaction sent from inside *A*, the engine installs the route of its new cluster, with members *M*. That routing comes either from a sweep of *M*, which reads only the events of *M* and is correct by Theorems 4 and 6, or from a cache entry for *M*, which equals it by the cache invariant. So every route is now the 𝒫′ route. Let *D* be the transactions whose route changed; all of them are sent from inside *A*.
 

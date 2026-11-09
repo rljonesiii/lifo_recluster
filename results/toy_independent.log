@@ -1,4 +1,4 @@
-$ python3 verify/toy_independent.py
+$ uv run python verify/toy_independent.py
 === 1 singletons
    1 Stolen->A 100: stolen=100  [S100]
    2 A->B  60: stolen= 60  [S60]
@@ -83,5 +83,4 @@ $ python3 verify/toy_independent.py
 2 B+E: identical to lifo.fresh_trace and lifo.Engine and lifo_nb.Engine
 3 B+E, D+F: identical to lifo.fresh_trace and lifo.Engine and lifo_nb.Engine
 4 D+F: identical to lifo.fresh_trace and lifo.Engine and lifo_nb.Engine
-(exit 0, 1 s wall)
-
+(exit 0, 0 s wall)

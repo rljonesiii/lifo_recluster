@@ -21,7 +21,7 @@ Compiled code works on flat integer arrays, so every per-transaction structure b
 | Clusters | `Cluster` objects | `owner[w]`, a cluster id per wallet, and a `hold` array per id; member sets stay in Python |
 | Routing cache | member set → routes and readers | the same, held as arrays |
 
-The arenas are **append-only**. An update writes new rows at the end and repoints the transaction; the old rows become dead. When dead rows outnumber live ones by more than 4,096, [`_compact_if_needed`](../lifo_nb.py#L1017) copies the live rows into a fresh arena ([`_compact2`](../lifo_nb.py#L627), [`_compact1`](../lifo_nb.py#L644)).
+The arenas are **append-only**. An update writes new rows at the end and repoints the transaction; the old rows become dead. When dead rows outnumber live ones by more than 4,096, [`_compact_if_needed`](../lifo_nb.py#L1016) copies the live rows into a fresh arena ([`_compact2`](../lifo_nb.py#L627), [`_compact1`](../lifo_nb.py#L644)).
 
 ## The kernels
 
@@ -36,7 +36,7 @@ Each compiled kernel mirrors a piece of the reference:
 | [`_label_runs`](../lifo_nb.py#L229) | [`_label_from_pieces`](../lifo.py#L277) | A label read off a route |
 | [`_snapshot`](../lifo_nb.py#L394) | step 2 of `regroup` | An outgoing cluster's routes and readers, for the cache |
 | [`_install`](../lifo_nb.py#L430) | step 3 of `regroup` | Write a new cluster's routes; return the ones that changed |
-| [`_propagate`](../lifo_nb.py#L542) | [`Engine._propagate`](../lifo.py#L467) | The heap, the cutoff and the linear pass |
+| [`_propagate`](../lifo_nb.py#L542) | [`Engine._propagate`](../lifo.py#L466) | The heap, the cutoff and the linear pass |
 | [`_fresh`](../lifo_nb.py#L661) | [`lifo.fresh_trace`](../lifo.py#L149) | The compiled fresh trace the benchmark compares against |
 
 Smaller helpers grow arrays, run the heap ([`_hpush`](../lifo_nb.py#L509), [`_hpop`](../lifo_nb.py#L522)), and drop and install readers ([`_drop_readers`](../lifo_nb.py#L479), [`_put_readers`](../lifo_nb.py#L488)).
@@ -45,9 +45,9 @@ Smaller helpers grow arrays, run the heap ([`_hpush`](../lifo_nb.py#L509), [`_hp
 
 The [`Engine`](../lifo_nb.py#L827) class keeps only the bookkeeping: validating input, working out which clusters an operation replaces, the member sets, the routing cache, and calling the kernels. Its [`regroup`](../lifo_nb.py#L922) takes the same steps as the reference's, in the same order, down to the cache's LRU order, so the two engines' states can be compared field by field.
 
-For the tests it also offers [`export`](../lifo_nb.py#L1108), the whole state in the reference's Python form, and [`check_invariants`](../lifo_nb.py#L1065), which checks the state that `export` does not show: live-row counters, arena bounds, scratch arrays left clean, cluster ids.
+For the tests it also offers [`export`](../lifo_nb.py#L1107), the whole state in the reference's Python form, and [`check_invariants`](../lifo_nb.py#L1064), which checks the state that `export` does not show: live-row counters, arena bounds, scratch arrays left clean, cluster ids.
 
-One small difference: the compiled engine's [`clusters()`](../lifo_nb.py#L1043) returns snapshots, so a `ClusterView`'s holdings do not follow later updates. Call `clusters()` again after each update.
+One small difference: the compiled engine's [`clusters()`](../lifo_nb.py#L1042) returns snapshots, so a `ClusterView`'s holdings do not follow later updates. Call `clusters()` again after each update.
 
 ## Choosing an engine
 

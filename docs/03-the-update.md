@@ -6,24 +6,24 @@ Every reclustering is one call, [`regroup(blocks)`](../lifo.py#L396): each given
 
 ## Four steps
 
-**1. Work out the new clusters** ([lines 400–411](../lifo.py#L400-L411)). Validate the input before changing anything. Find the clusters the given wallets belong to (the *outgoing* clusters), and form the new ones: the given sets plus the remainder of each outgoing cluster. If the result is the same partition, stop.
+**1. Work out the new clusters** ([lines 400–410](../lifo.py#L400-L410)). Validate the input before changing anything. Drop each given set that is already a cluster, since it changes nothing, and stop if none is left. Find the clusters the remaining sets touch (the *outgoing* clusters), and form the new ones: those sets plus the remainder of each outgoing cluster.
 
-**2. Retire the outgoing clusters** ([lines 413–424](../lifo.py#L413-L424)). Before anything changes, save each outgoing cluster's routes and readers in the cache under its member set, so a later undo can bring them back without a sweep. Then drop its readers.
+**2. Retire the outgoing clusters** ([lines 412–423](../lifo.py#L412-L423)). Before anything changes, save each outgoing cluster's routes and readers in the cache under its member set, so a later undo can bring them back without a sweep. Then drop its readers.
 
-**3. Route the new clusters** ([lines 425–444](../lifo.py#L425-L444)). For each new cluster, take its routes and readers from the cache if this member set has been seen, or [`sweep`](../lifo.py#L214) its events. Point its wallets at it, set its holdings to the sum of its members' net flows, and install its readers. Compare each of its routes with the old one: every transaction whose route changed is a **seed**.
+**3. Route the new clusters** ([lines 424–443](../lifo.py#L424-L443)). For each new cluster, take its routes and readers from the cache if this member set has been seen, or [`sweep`](../lifo.py#L214) its events. Point its wallets at it, set its holdings to the sum of its members' net flows, and install its readers. Compare each of its routes with the old one: every transaction whose route changed is a **seed**.
 
-**4. Propagate labels** ([`_propagate`](../lifo.py#L467)). Keep the seeds in a min-heap and process them in time order. For each transaction:
+**4. Propagate labels** ([`_propagate`](../lifo.py#L466)). Keep the seeds in a min-heap and process them in time order. For each transaction:
 
-- recompute its label from its pieces ([lines 501–506](../lifo.py#L501-L506));
-- if the label is **unchanged, stop here**: its readers cannot be affected ([lines 517–518](../lifo.py#L517-L518));
-- if it changed, move the sender's and receiver's net flows and their clusters' holdings by the change in stolen units ([lines 507–516](../lifo.py#L507-L516)), and push its readers onto the heap ([lines 519–525](../lifo.py#L519-L525)).
+- recompute its label from its pieces ([lines 500–505](../lifo.py#L500-L505));
+- if the label is **unchanged, stop here**: its readers cannot be affected ([lines 516–517](../lifo.py#L516-L517));
+- if it changed, move the sender's and receiver's net flows and their clusters' holdings by the change in stolen units ([lines 506–515](../lifo.py#L506-L515)), and push its readers onto the heap ([lines 518–524](../lifo.py#L518-L524)).
 
 Every input comes before its reader in time, so popping in time order means each label is computed from inputs that are already final.
 
 ## Two safeguards
 
-- **The linear pass.** If the wave grows past n/4 recomputed transactions, propagation switches to one plain pass over every later transaction ([lines 494–498](../lifo.py#L494-L498)). That caps the label work at about 1.25 n recomputations, so even the worst update costs a small multiple of a fresh trace ([Theorem 9](proofs.md#the-algorithm)).
-- **The cache budget.** The routing cache is least-recently-used and holds at most n routes in total ([`_cache_put`](../lifo.py#L456)). Evicting an entry only costs a future sweep; it never changes a result.
+- **The linear pass.** If the wave grows past n/4 recomputed transactions, propagation switches to one plain pass over every later transaction ([lines 493–497](../lifo.py#L493-L497)). That caps the label work at about 1.25 n recomputations, so even the worst update costs a small multiple of a fresh trace ([Theorem 9](proofs.md#the-algorithm)).
+- **The cache budget.** The routing cache is least-recently-used and holds at most n routes in total ([`_cache_put`](../lifo.py#L455)). Evicting an entry only costs a future sweep; it never changes a result.
 
 ## Three levels of "does this change matter?"
 

@@ -31,10 +31,10 @@ Representation
 
 Update (Engine.regroup, which merge and split call)
 ---------------------------------------------------
-1. Replace the clusters containing the regrouped wallets by the new blocks plus what is
-   left of them.
+1. Drop each block that is already a cluster: it changes nothing.  Replace the clusters
+   the other blocks touch by those blocks plus what is left of each.
 2. For each new cluster take routing and readers from the cache, or sweep its events.
-3. Every transaction sent by a regrouped wallet whose route changed seeds propagation.
+3. Every transaction sent from a new cluster whose route changed seeds propagation.
 4. Recompute labels in time order from a min-heap, stopping wherever a recomputed label
    equals the old one.  If the wave grows past n/4 transactions, finish with one linear
    pass.  Holdings move by the change in stolen units of each changed label.
@@ -397,7 +397,8 @@ class Engine:
         """Make each wallet set in `blocks` a cluster.  The other members of the clusters
         they touch stay together as the remainder of each such cluster."""
         L, owner, route, readers, net = self.L, self.owner, self.route, self.readers, self.net
-        blocks = check_partition(L, blocks)  # validate before changing anything
+        blocks = [b for b in check_partition(L, blocks)  # validate before changing anything
+                  if owner[next(iter(b))].members != b]  # a block that is already a cluster
         if not blocks:
             return
         touched = frozenset().union(*blocks)
@@ -407,8 +408,6 @@ class Engine:
             rest = c.members - touched
             if rest:
                 new.append(rest)
-        if set(new) == {c.members for c in old}:
-            return
         src, dst, wev = L.src, L.dst, L.wev
         for c in old:
             entry = self.cache.get(c.members)

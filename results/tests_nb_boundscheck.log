@@ -1,4 +1,3 @@
-$ NUMBA_BOUNDSCHECK=1 NUMBA_CACHE_DIR=<separate dir> python3 test_engine.py 1000 11 --nb
-OK (seed 11): lifo_nb.Engine (compiled; 3506 arena compactions), in lockstep with lifo.Engine, on 1000 random ledgers, 6126 operations, every result identical to a fresh trace and to a rebuild; on the 3747 operations over small-amount ledgers the fresh trace also matched the unit-by-unit tracer; targeted tests (553 operations: values near and past the int64 bound, thresholds, holdings growth, self-checks) and input validation passed
-(exit 0, 39 s wall)
-
+$ NUMBA_BOUNDSCHECK=1 NUMBA_CACHE_DIR=<separate dir> uv run python test_engine.py 1000 11 --nb
+OK (seed 11): lifo_nb.Engine (compiled; 3480 arena compactions), in lockstep with lifo.Engine, on 1000 random ledgers, 6126 operations, every result identical to a fresh trace and to a rebuild; on the 3747 operations over small-amount ledgers the fresh trace also matched the unit-by-unit tracer; targeted tests (555 operations: values near and past the int64 bound, thresholds, holdings growth, self-checks) and input validation passed
+(exit 0, 56 s wall)

@@ -34,10 +34,10 @@ In practice, import `Engine` from [`engine.py`](../engine.py) instead: it return
 | [277–306](../lifo.py#L277-L306) | [`_label_from_pieces`](../lifo.py#L277): a label read off a route. |
 | [310–315](../lifo.py#L310-L315) | [`Cluster`](../lifo.py#L310): a member set and its stolen holdings. |
 | [318–364](../lifo.py#L318-L364) | [`Engine.__init__`](../lifo.py#L319): the full build. |
-| [376–447](../lifo.py#L376-L447) | [`merge`](../lifo.py#L376), [`split`](../lifo.py#L387) and [`regroup`](../lifo.py#L396) ([page 3](03-the-update.md)). |
-| [450–464](../lifo.py#L450-L464) | The routing cache: [`_cache_get`](../lifo.py#L450) and [`_cache_put`](../lifo.py#L456). |
-| [467–527](../lifo.py#L467-L527) | [`_propagate`](../lifo.py#L467): labels in time order, the cutoff and the linear pass. |
-| [530–544](../lifo.py#L530-L544) | Queries: [`clusters`](../lifo.py#L530), [`cluster_of`](../lifo.py#L533) and [`check_against_fresh`](../lifo.py#L540). |
+| [376–446](../lifo.py#L376-L446) | [`merge`](../lifo.py#L376), [`split`](../lifo.py#L387) and [`regroup`](../lifo.py#L396) ([page 3](03-the-update.md)). |
+| [449–463](../lifo.py#L449-L463) | The routing cache: [`_cache_get`](../lifo.py#L449) and [`_cache_put`](../lifo.py#L455). |
+| [466–526](../lifo.py#L466-L526) | [`_propagate`](../lifo.py#L466): labels in time order, the cutoff and the linear pass. |
+| [529–543](../lifo.py#L529-L543) | Queries: [`clusters`](../lifo.py#L529), [`cluster_of`](../lifo.py#L532) and [`check_against_fresh`](../lifo.py#L539). |
 
 ## The ledger
 

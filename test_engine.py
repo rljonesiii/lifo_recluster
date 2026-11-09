@@ -310,6 +310,21 @@ def targeted(seed=1, compiled=False):
         lockstep(eng, twin, f"growth: merge {i}")
     check(eng, L, "growth: merged back")
     ops += 2 * len(order) - 2
+    # passing back a whole clustering touches only the clusters that change: after one merge,
+    # restoring every cluster costs two cache hits and no sweep
+    L = random_ledger(rng, 30, 300, n_labels=2, max_amt=9)
+    init = random_partition(rng, L.wallets(), 0.5)
+    eng, twin = Engine(L, init), twin_of(L, init)
+    P = [c.members for c in eng.clusters()]
+    ab = [min(c.members) for c in eng.clusters()[:2]]
+    eng.merge(ab); twin and twin.merge(ab)
+    eng.reset_stats(); twin and twin.reset_stats()
+    eng.regroup(P); twin and twin.regroup(P)
+    st = eng.reset_stats(); twin and twin.reset_stats()
+    assert st["cache_hits"] == 2 and st["swept"] == 0, f"restoring a clustering touched more: {st}"
+    check(eng, L, "restore by regroup")
+    lockstep(eng, twin, "restore by regroup")
+    ops += 2
     # the self-checks must notice a wrong label (either column of a run) or a wrong holding
     L = random_ledger(rng, 10, 300, n_labels=3, max_amt=9)
     eng = Engine(L, random_partition(rng, L.wallets(), 0.5))

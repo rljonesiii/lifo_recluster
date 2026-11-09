@@ -1,4 +1,4 @@
-$ python3 toy.py
+$ uv run python toy.py
   t tx           amt  Baseline (all singleto    Event 1: merge B+E        Event 2: merge D+F        Event 3: split B|E, D+  
   1 Stolen->A    100  100 [S100]                100 [S100]                100 [S100]                100 [S100]              
   2 A->B          60   60 [S60]                  60 [S60]                  60 [S60]                  60 [S60]               
@@ -33,4 +33,3 @@ Sensitivity: if a transfer's funds were pushed upside down (pop order):
   Event 2: merge D+F               X= 60  Y=  0
   Event 3: split B|E, D+F kept     X= 60  Y=  0
 (exit 0, 1 s wall)
-

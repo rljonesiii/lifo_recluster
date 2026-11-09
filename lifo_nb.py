@@ -923,7 +923,8 @@ class Engine:
         """Make each wallet set in `blocks` a cluster.  The other members of the clusters
         they touch stay together as the remainder of each such cluster."""
         L, A = self.L, self.A
-        blocks = check_partition(L, blocks)  # validate before changing anything
+        blocks = [b for b in check_partition(L, blocks)  # validate before changing anything
+                  if self.members[int(self.owner[next(iter(b))])] != b]  # already a cluster
         if not blocks:
             return
         touched = frozenset().union(*blocks)
@@ -933,8 +934,6 @@ class Engine:
             rest = self.members[c] - touched
             if rest:
                 new.append(rest)
-        if set(new) == {self.members[c] for c in old}:
-            return
         for c in old:
             m = self.members.pop(c)
             entry = self.cache.get(m)
