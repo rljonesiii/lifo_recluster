@@ -299,7 +299,7 @@ The readers index and the event list replace sorts with linear passes, which mat
 
 The work itself runs 4.4–7.6× faster, but local reclusterings do not get faster. On 6 of the 8 at 1M the compiled engine is slower than the reference, by up to 2.3×, and on the other two it is 1.6–1.9× faster. Their cost was never the work, a few dozen events and labels, but the Python bookkeeping around it, and the compiled engine adds the cost of calling about ten kernels per operation. The fresh trace sped up by about 14×, more than the engine's large operations did, so the incremental speedups change shape. Local reclusterings stay hundreds of times faster than a fresh trace (610–1,200×). Changes inside exchanges drop from 4.1–16× to 2.2–6.4×, and merging all four exchanges drops from 2.6× to 1.4×.
 
-**Using it.** Numba compiles the kernels on first use, in 10–15 s, and caches them on disk, so later runs load them in under a second. Without NumPy and Numba, or for a ledger too large for the compiled engine's 64-bit integers (see Section 9), `engine.py` falls back to the reference engine, which gives the same results more slowly.
+**Using it.** Numba compiles the kernels on first use, in about 20 s on the machine of Section 8 ([`compile.log`](../results/compile.log)), and caches them on disk, so later runs load them in under a second. Without NumPy and Numba, or for a ledger too large for the compiled engine's 64-bit integers (see Section 9), `engine.py` falls back to the reference engine, which gives the same results more slowly.
 
 ## 8. Scaling benchmarks
 
@@ -400,7 +400,7 @@ Label work scales with what changed, but every cluster whose membership changes 
 
 ## 10. Code and reproduction
 
-The code is in this repository, and [the documentation](README.md) walks through it page by page. It has two engines with one interface and identical results. [`lifo_nb.py`](../lifo_nb.py) is the engine to use: compiled with Numba, with its state in NumPy arrays. [`lifo.py`](../lifo.py) (543 lines, including the reference tracer and the documentation of the model) is the pure standard-library reference and the fallback. [`engine.py`](../engine.py) picks the compiled engine when NumPy and Numba are installed. Numba compiles the kernels on first use, in 10–15 s, and caches them on disk. Dependencies are managed with uv: [`pyproject.toml`](../pyproject.toml) lists them, [`uv.lock`](../uv.lock) pins them, and `uv sync` installs NumPy, Numba, z3-solver and psutil ([Running it](08-running.md)).
+The code is in this repository, and [the documentation](README.md) walks through it page by page. It has two engines with one interface and identical results. [`lifo_nb.py`](../lifo_nb.py) is the engine to use: compiled with Numba, with its state in NumPy arrays. [`lifo.py`](../lifo.py) (543 lines, including the reference tracer and the documentation of the model) is the pure standard-library reference and the fallback. [`engine.py`](../engine.py) picks the compiled engine when NumPy and Numba are installed. Numba compiles the kernels on first use, in about 20 s, and caches them on disk. Dependencies are managed with uv: [`pyproject.toml`](../pyproject.toml) lists them, [`uv.lock`](../uv.lock) pins them, and `uv sync` installs NumPy, Numba, z3-solver and psutil ([Running it](08-running.md)).
 
 | File | Contents |
 | --- | --- |

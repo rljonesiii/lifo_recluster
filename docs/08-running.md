@@ -30,7 +30,7 @@ Everything else is the Python standard library. Without NumPy and Numba the code
 uv run python toy.py
 ```
 
-This traces the challenge ledger through all three events and prints every transaction's attribution, the stolen totals reaching X and Y, and the work each event took. The first run takes 10–15 seconds because Numba compiles the kernels; later runs load them from its cache and finish in about a second. The output should match [`results/toy.log`](../results/toy.log).
+This traces the challenge ledger through all three events and prints every transaction's attribution, the stolen totals reaching X and Y, and the work each event took. The first run takes about 20 seconds longer because Numba compiles the kernels; later runs load them from its cache and finish in about a second. The output should match [`results/toy.log`](../results/toy.log).
 
 ## Reproducing every result
 

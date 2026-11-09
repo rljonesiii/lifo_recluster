@@ -1,30 +1,29 @@
-$ python3 verify/exhaustive.py --nb S1
+$ uv run python verify/exhaustive.py --nb S1
 engine: lifo_nb.Engine (compiled)
-S1: <= 5 transactions, <= 3 wallets, amounts 1-2: 192,286 ledgers, 800,718 (ledger, clustering) cases, 75,587,002 engine states checked (5 settings) - all passed in 3121 s
+S1: <= 5 transactions, <= 3 wallets, amounts 1-2: 192,286 ledgers, 800,718 (ledger, clustering) cases, 75,587,002 engine states checked (5 settings) - all passed in 2755 s
 TOTAL: 192,286 ledgers, 800,718 clustering cases, 75,587,002 engine states checked; T1, T2, T4, T5, T7 asserted on the specification, every state equal to it
-(exit 0, 3122 s wall)
+(exit 0, 2756 s wall)
 
-$ python3 verify/exhaustive.py --nb S2 0/4
+$ uv run python verify/exhaustive.py --nb S2 0/4
 engine: lifo_nb.Engine (compiled)
-S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 1 of 4: 19,200 ledgers, 288,000 (ledger, clustering) cases, 68,371,200 engine states checked (5 settings) - all passed in 3028 s
+S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 1 of 4: 19,200 ledgers, 288,000 (ledger, clustering) cases, 68,371,200 engine states checked (5 settings) - all passed in 2810 s
 TOTAL: 19,200 ledgers, 288,000 clustering cases, 68,371,200 engine states checked; T1, T2, T4, T5, T7 asserted on the specification, every state equal to it
-(exit 0, 3029 s wall)
+(exit 0, 2811 s wall)
 
-$ python3 verify/exhaustive.py --nb S2 1/4
+$ uv run python verify/exhaustive.py --nb S2 1/4
 engine: lifo_nb.Engine (compiled)
-S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 2 of 4: 19,034 ledgers, 285,510 (ledger, clustering) cases, 67,780,074 engine states checked (5 settings) - all passed in 3105 s
+S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 2 of 4: 19,034 ledgers, 285,510 (ledger, clustering) cases, 67,780,074 engine states checked (5 settings) - all passed in 2704 s
 TOTAL: 19,034 ledgers, 285,510 clustering cases, 67,780,074 engine states checked; T1, T2, T4, T5, T7 asserted on the specification, every state equal to it
-(exit 0, 3105 s wall)
+(exit 0, 2705 s wall)
 
-$ python3 verify/exhaustive.py --nb S2 2/4
+$ uv run python verify/exhaustive.py --nb S2 2/4
 engine: lifo_nb.Engine (compiled)
-S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 3 of 4: 19,000 ledgers, 285,000 (ledger, clustering) cases, 67,659,000 engine states checked (5 settings) - all passed in 3115 s
+S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 3 of 4: 19,000 ledgers, 285,000 (ledger, clustering) cases, 67,659,000 engine states checked (5 settings) - all passed in 2694 s
 TOTAL: 19,000 ledgers, 285,000 clustering cases, 67,659,000 engine states checked; T1, T2, T4, T5, T7 asserted on the specification, every state equal to it
-(exit 0, 3115 s wall)
+(exit 0, 2695 s wall)
 
-$ python3 verify/exhaustive.py --nb S2 3/4
+$ uv run python verify/exhaustive.py --nb S2 3/4
 engine: lifo_nb.Engine (compiled)
-S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 4 of 4: 19,000 ledgers, 285,000 (ledger, clustering) cases, 67,659,000 engine states checked (5 settings) - all passed in 3163 s
+S2: <= 5 transactions, exactly 4 wallets, amounts 1-2, part 4 of 4: 19,000 ledgers, 285,000 (ledger, clustering) cases, 67,659,000 engine states checked (5 settings) - all passed in 2785 s
 TOTAL: 19,000 ledgers, 285,000 clustering cases, 67,659,000 engine states checked; T1, T2, T4, T5, T7 asserted on the specification, every state equal to it
-(exit 0, 3163 s wall)
-
+(exit 0, 2785 s wall)

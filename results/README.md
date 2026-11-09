@@ -20,6 +20,7 @@ package root, in the environment `uv sync` installs.
 | `n10000.*`, `n100000.*`, `n1000000.*` | `uv run python bench.py N --repeat 5 --mem --ablate --out results/nN.json` | The reference engine's benchmark; `.json` holds every timing, work counter and memory reading, and the machine |
 | `nb_n10000.*`, `nb_n100000.*`, `nb_n1000000.*` | `uv run python bench.py N --nb --repeat 5 --mem --ablate --out results/nb_nN.json` | The compiled engine's benchmark |
 | `machine.log` | the command at its top | The machine and the library versions everything ran with |
+| `compile.log` | `NUMBA_CACHE_DIR=<empty dir> uv run python bench.py 10000 --nb` | The 10k compiled benchmark with an empty kernel cache; its second line is Numba's first-compile time |
 | `experiments.log` | `uv run python experiments.py` | The micro-benchmarks behind "compile rather than vectorize", the worst case, and the route-stability check, on the 1M network |
 
 [`SOURCES.md5`](SOURCES.md5) holds the checksums of the code these logs ran on

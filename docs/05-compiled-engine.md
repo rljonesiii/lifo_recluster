@@ -55,7 +55,7 @@ One small difference: the compiled engine's [`clusters()`](../lifo_nb.py#L1042) 
 
 The 64-bit limit comes from [`fits`](../lifo_nb.py#L40). Every number the kernels form (a block, a run, a stack height, a net flow, a holding) is at most twice the ledger's total volume, so a total volume below 2⁶² is always safe. A ledger kept in wei passes that bound at about 4.6 ether of total volume, and then runs on the reference engine, which uses Python's unbounded integers.
 
-Numba compiles the kernels the first time they run (10–15 seconds) and caches the machine code on disk, so later runs start in under a second.
+Numba compiles the kernels the first time they run (about 20 seconds, [`compile.log`](../results/compile.log)) and caches the machine code on disk, so later runs start in under a second.
 
 ---
 [← 4. Reading the reference engine](04-reference-engine.md) · Next: [6. How we know it is right →](06-verification.md)

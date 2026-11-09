@@ -30,7 +30,7 @@ uv run python toy.py          # the challenge ledger, all three events
 
 `numpy` and `numba` run the compiled engine, `z3-solver` the proofs in `verify/smt_checks.py`,
 and `psutil` the benchmark's memory readings; `uv sync --group docs` adds `matplotlib` for
-`docs/figures/make_figures.py`. Numba compiles the kernels on first use (10–15 s) and caches them on disk; later runs
+`docs/figures/make_figures.py`. Numba compiles the kernels on first use (about 20 s) and caches them on disk; later runs
 load them in well under a second.
 
 | File | What it is |
