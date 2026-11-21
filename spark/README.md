@@ -2,16 +2,21 @@
 
 A sketch of running the lifo_recluster trace on a full ledger. A PySpark job routes every
 cluster in parallel, propagates stolen labels in rounds, and sums holdings. It is packaged
-for the Kubeflow Spark Operator, with Delta Lake tables on S3-compatible storage. It covers
-the batch build only; the end of this file lists what an incremental deployment adds. The
-theorems it cites are in [the proofs](../docs/proofs.md).
+for the Kubeflow Spark Operator, with Delta Lake tables on S3-compatible storage. The job
+covers the batch build. A second module, `jumps.py`, adds the jump table and incremental
+reclustering; it is checked locally but not yet wired into a job, and the end of this file
+lists what an incremental deployment still needs. The theorems it cites are in
+[the proofs](../docs/proofs.md).
 
 ## Layout
 
 ```
 jobs/lifo_spark/sweep.py   per-cluster LIFO sweep (Numba), run inside mapInPandas
 jobs/lifo_spark/build.py   the job: events, routes, stolen labels, flows, holdings
+jobs/lifo_spark/jumps.py   the jump table: labels by rounds over heads, and reclusterings
 jobs/check_local.py        local-mode exactness check against lifo_recluster
+jobs/check_jumps.py        the same kind of check for jumps.py, through random regroups
+docs/jump-table.md         the jump table: design, worked example, and proof
 results/check_local.log    three runs of that check, all equal
 Dockerfile                 Spark 4.0.5, Delta 4.0.1, S3A, Numba; the jobs on the Python path
 k8s/00-namespace-rbac.yaml                      namespace, service account, driver role
@@ -76,6 +81,66 @@ transfers. All were run with PySpark 4.0.5 on Java 21 and Python 3.10. Separatel
 ran end to end through `spark-submit` on Parquet files, with checkpoints on disk and
 `--labels-checkpoint-every 3`, and its labels and holdings matched as well.
 
+## The jump table
+
+`jobs/lifo_spark/jumps.py` adds a jump table with one row per pass-through payment, a route
+of one piece: `jumps(t, head, offset, length)` says that t carries units
+`[offset, offset + length)` of head's block. Heads are deposits, payments that mix funds,
+and seeds. `hpieces` holds the heads' own routes, with every input resolved to a head.
+[docs/jump-table.md](docs/jump-table.md) has the design, a worked example, and the proof.
+
+- `build(pieces, deposits)` builds the table by pointer jumping, in about log2 of the
+  longest chain rounds. It then propagates labels in rounds over heads only and fills in
+  every pass-through payment with one join, since its label is a slice of its head's.
+- `recluster(transfers, sources, old_membership, new_membership, state)` handles one
+  regroup. It re-sweeps only the clusters whose member set changed, found by hashing each
+  cluster's members, and diffs the routes for the seeds. One join then re-points every
+  jump row and resolved head piece that lies under a seed: it comes after the seed, its
+  range of the seed's old head falls inside the seed's old range, and the seed was a
+  pass-through with readers. The latest such seed wins. Labels then propagate over heads
+  from the seeds, with the equality cutoff, and one join fills in the pass-through
+  payments whose head's label changed. `flows_and_holdings` on the new labels gives the
+  holdings.
+
+Seeds stay heads, so the table compresses less after many regroups; an occasional `build`
+restores it.
+
+Check it locally, from this folder:
+
+```
+PYTHONPATH=jobs python jobs/check_jumps.py --repo ..
+```
+
+It builds a smaller version of check_local.py's ledger, runs `build`, then applies random
+merges and splits one at a time with `recluster`. After the build and after every regroup,
+it requires the labels and holdings to equal `lifo.fresh_trace` for the clustering at that
+point, and the kept pieces to equal a full re-sweep. A run with the defaults:
+
+```
+ledger: 3,391 transfers, 1,205 wallets, 797 clusters; 1,740 jump rows, 816 payments with head routes
+batch build with the jump table                            11 rounds over heads, against 20 over all payments
+   labels 2,060: all equal; holdings 266: all equal; pieces equal a full re-sweep
+1. split a 2-wallet cluster into 1 + 1                     seeds 7, re-pointed 0 rows and 4 head pieces, head rounds 7, heads changed 8, filled 1
+   labels 2,061: all equal; holdings 266: all equal; pieces equal a full re-sweep
+2. split a 2-wallet cluster into 1 + 1                     seeds 11, re-pointed 0 rows and 0 head pieces, head rounds 7, heads changed 30, filled 4
+   labels 2,062: all equal; holdings 267: all equal; pieces equal a full re-sweep
+3. merge clusters of 3 and 2 wallets (transfer 3142)       seeds 10, re-pointed 1 rows and 1 head pieces, head rounds 1, heads changed 3, filled 1
+   labels 2,063: all equal; holdings 266: all equal; pieces equal a full re-sweep
+4. split a 2-wallet cluster into 1 + 1                     seeds 2, re-pointed 0 rows and 0 head pieces, head rounds 3, heads changed 3, filled 0
+   labels 2,063: all equal; holdings 267: all equal; pieces equal a full re-sweep
+5. merge clusters of 15 and 1 wallets (transfer 418)       seeds 9, re-pointed 10 rows and 6 head pieces, head rounds 1, heads changed 1, filled 1
+   labels 2,063: all equal; holdings 268: all equal; pieces equal a full re-sweep
+6. merge clusters of 1 and 20 wallets (transfer 125)       seeds 15, re-pointed 4 rows and 5 head pieces, head rounds 2, heads changed 9, filled 19
+   labels 2,067: all equal; holdings 267: all equal; pieces equal a full re-sweep
+ALL EQUAL (85 s)
+```
+
+Across seeds and two ledger sizes, 62 random merges and splits on ledgers of 3,187 to 7,828
+transfers all matched. On a 7,706-transfer ledger, the build took 11 rounds over heads
+against 25 over all payments. A long local session runs thousands of small jobs: with the
+default 1 GB driver, one ran out of heap after nine regroups, so the check asks for 3 GB
+(`--driver-memory`) and keeps Spark's job history short.
+
 ## Run it on Kubernetes
 
 1. Build and push the image from this folder:
@@ -124,9 +189,10 @@ the `spark` service account an IAM role (IRSA), and set
 
 ## Not in this sketch
 
-- **Incremental regroups.** Re-sweep only the clusters an operation creates, replace their
-  pieces in one Delta commit, diff old and new pieces to get the seeds, and call
-  `propagate` from those seeds. It is the same function the build uses.
+- **An incremental job.** `jumps.recluster` updates the pieces, the jump table, and the
+  labels as DataFrames. A job around it still has to read each regroup's new membership,
+  write the changed pieces, jump rows, labels, and holdings to Delta with one MERGE each,
+  in place of the nightly rebuild, and keep that state between runs.
 - **Giant clusters.** An exchange with hundreds of millions of events runs in one task.
   Splitting it into time chunks whose summaries combine like matched parentheses removes
   that bottleneck.
