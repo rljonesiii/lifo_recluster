@@ -5,6 +5,8 @@
 Builds one ledger out of a generated laundering network and many small random ledgers
 (disjoint wallets, one after another in time), runs the Spark build on it, and requires
 the routes to equal lifo.sweep and the labels and holdings to equal lifo.fresh_trace.
+Half of the one-wallet clusters are left out of membership, so the job's own singletons,
+cluster -(wallet + 1), are checked as well as listed ones.
 """
 import argparse
 import random
@@ -44,7 +46,10 @@ def expected(L, blocks):
     for i, b in enumerate(blocks):
         for w in b:
             cluster_of[w] = i
-    routes = {t: p for b in blocks for t, p in sweep(L, frozenset(b))[0].items()}
+    clusters = {}
+    for w in L.wallets():                  # the listed clusters and the wallets left out
+        clusters.setdefault(cluster_of[w], []).append(w)
+    routes = {t: p for m in clusters.values() for t, p in sweep(L, frozenset(m))[0].items()}
     out, hold = fresh_trace(L, cluster_of)
 
     def stolen_runs(runs):
@@ -92,8 +97,9 @@ def main():
 
     from pyspark.sql import SparkSession
     L, blocks = combined_ledger(args.n_gen, args.n_small, args.seed)
+    listed = [b for i, b in enumerate(blocks) if len(b) > 1 or i % 2]   # the rest are left out
     t0 = time.time()
-    want_routes, want_labels, want_hold, _ = expected(L, blocks)
+    want_routes, want_labels, want_hold, _ = expected(L, listed)
     spark = (SparkSession.builder.master("local[2]").appName("lifo-check")
              .config("spark.ui.enabled", "false")
              .config("spark.ui.showConsoleProgress", "false")
@@ -101,13 +107,14 @@ def main():
              .config("spark.sql.execution.arrow.maxRecordsPerBatch", str(args.batch))
              .getOrCreate())
     spark.sparkContext.setLogLevel("ERROR")
-    got_routes, got_labels, got_hold, rounds = actual(spark, L, blocks, args.partitions,
+    got_routes, got_labels, got_hold, rounds = actual(spark, L, listed, args.partitions,
                                                       args.labels_checkpoint_every)
     spark.stop()
 
     checks = [("routes", want_routes, got_routes), ("stolen labels", want_labels, got_labels),
               ("holdings", want_hold, got_hold)]
-    print(f"ledger: {L.n:,} transfers, {L.W:,} wallets, {len(blocks):,} clusters; "
+    print(f"ledger: {L.n:,} transfers, {L.W:,} wallets, {len(blocks):,} clusters "
+          f"({len(blocks) - len(listed):,} left out of membership); "
           f"{len(got_routes):,} routes, {len(got_labels):,} tainted transfers, "
           f"{rounds} label rounds, {time.time() - t0:.0f} s")
     ok = True

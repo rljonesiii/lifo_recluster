@@ -6,7 +6,7 @@ On Spark, label propagation takes one round per hop, and each round runs several
 
 ## Why rounds are the cost
 
-Label propagation runs in time order. Each payment's label, which marks its money as stolen or clean, is made of slices of earlier payments' labels (the [labels-from-pieces lemma](../../docs/proofs.md#data-structures)). The engines propagate with a heap on one machine, where a long path costs little. On Spark, every round of [`propagate`](../jobs/lifo_spark/build.py#L106) runs several joins, so a change that travels 10 hops takes 10 rounds, and the number of rounds grows linearly with the longest path a change travels.
+Label propagation runs in time order. Each payment's label, which marks its money as stolen or clean, is made of slices of earlier payments' labels (the [labels-from-pieces lemma](../../docs/proofs.md#data-structures)). The engines propagate with a heap on one machine, where a long path costs little. On Spark, every round of [`propagate`](../jobs/lifo_spark/build.py#L108) runs several joins, so a change that travels 10 hops takes 10 rounds, and the number of rounds grows linearly with the longest path a change travels.
 
 Most hops pass on a single slice of one earlier payment, and a slice of a slice is still a slice, so those hops form chains. Forks need no special handling: each branch of a fork is still one slice of the same block, so it stays in its chain. Composing each chain once and storing the result lets a change cross the whole chain in one step.
 
@@ -40,7 +40,7 @@ Like routes, the table records positions only, not labels, so it depends only on
 2. **Update the jump table in one join.** Make each seed a head, and resolve its new pieces to heads. Re-point every row and every head piece that lies under a seed: it is later than the seed, and its range of the seed's old head falls inside the seed's old range. Subtract the seed's old offset, and send an entry under two seeds to the later one. Only a seed that was a pass-through, and that some payment reads, can have entries under it. A seed that was already a head keeps its entries, since they already point at it. An internal transfer has no readers, and [skipping it matters](#why-a-seed-needs-a-reader).
 3. **Propagate over heads only,** in rounds that start from the seeds. Recompute each head's label from its head pieces. If the label changed, recompute the heads that read it. If it did not change, stop there.
 4. **Fill in** the pass-through payments whose head's label changed, in one join: label(*t*) is the slice [offset, offset + length) of label(head).
-5. **Update holdings** from the new labels ([`flows_and_holdings`](../jobs/lifo_spark/build.py#L137), by Theorem 5).
+5. **Update holdings** from the new labels ([`flows_and_holdings`](../jobs/lifo_spark/build.py#L139), by Theorem 5).
 
 ### Why the table needs no rounds
 

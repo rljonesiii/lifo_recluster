@@ -16,8 +16,9 @@ jobs/lifo_spark/build.py   the job: events, routes, stolen labels, flows, holdin
 jobs/lifo_spark/jumps.py   the jump table: labels by rounds over heads, and reclusterings
 jobs/check_local.py        local-mode exactness check against lifo_recluster
 jobs/check_jumps.py        the same kind of check for jumps.py, through random regroups
+jobs/check_inputs.py       the input rules, on one bad ledger per rule
+results/check_local.log    three runs of check_local.py, all equal
 docs/jump-table.md         the jump table: design, worked example, and proof
-results/check_local.log    three runs of that check, all equal
 Dockerfile                 Spark 4.0.5, Delta 4.0.1, S3A, Numba; the jobs on the Python path
 k8s/00-namespace-rbac.yaml                      namespace, service account, driver role
 k8s/01-object-store-secret.example.yaml        store credentials (fill in, apply once)
@@ -27,7 +28,7 @@ k8s/20-rebuild.scheduledsparkapplication.yaml  the same build every night
 
 ## How the job works
 
-1. **Events.** One row per cluster and transfer: an inflow, an outflow or an internal read.
+1. **Events.** One row per cluster and transfer: an inflow, an outflow, or an internal read.
 2. **Routes.** Repartition by cluster, sort by (cluster, seq), and sweep in `mapInPandas`.
    A partition's generator carries the current cluster's block stack across Arrow
    batches, so a task holds one cluster's stack at a time (Theorem 4, routing locality).
@@ -36,25 +37,32 @@ k8s/20-rebuild.scheduledsparkapplication.yaml  the same build every night
    hack deposits, each round recomputes the readers of the labels that just changed (a
    join of pieces with their inputs' runs, the labels-from-pieces lemma) and keeps those
    whose label changed (the equality cutoff). Routes point back in time (Theorem 6), so the
-   rounds reach a fixed point. Each round checkpoints its candidates, new labels and changed
+   rounds reach a fixed point. Each round checkpoints its candidates, new labels, and changed
    set to the store, and the labels table every `--labels-checkpoint-every` rounds (1 by
    default).
 4. **Flows and holdings.** Net stolen flow per wallet, summed per cluster (Theorem 5).
 
 Outputs under `--out`: `pieces` (partitioned by a hash bucket of the cluster), `labels`,
-`flows` and `holdings`.
+`flows`, and `holdings`.
 
 ## Inputs
 
 | Table | Columns | Notes |
 | --- | --- | --- |
-| `transfers` | `seq long, src long, dst long, amount long` | `seq` is the global order (block, transaction, output); amounts are integers |
+| `transfers` | `seq long, src long, dst long, amount long` | `seq` is the global order (block, transaction, output); amounts are positive integers |
 | `sources` | `wallet long, label int` | 0 clean, 1 or more stolen |
 | `membership` | `wallet long, cluster long` | cluster ids 0 or more; a wallet left out is its own cluster |
 
+The tables must also form a valid ledger and clustering: `seq` unique, no wallet paying
+itself or paying out more than it holds, sources that only send and are never clustered,
+wallet ids 0 or more, and no wallet listed twice in `sources` or in `membership`. These are
+the rules `lifo.Ledger` enforces, plus the unique keys the joins assume. The job checks them
+before it builds and stops with the number of rows that break each one. Without the checks,
+a repeated `seq` or a wallet in two clusters gives wrong results with no error.
+
 ## Check it locally
 
-From this folder, with PySpark 4.0.5, NumPy, Numba, pandas and PyArrow installed:
+From this folder, with PySpark 4.0.5, NumPy, Numba, pandas, and PyArrow installed:
 
 ```
 PYTHONPATH=jobs python jobs/check_local.py --repo ..
@@ -64,22 +72,27 @@ Run it in an activated environment, or set `PYSPARK_PYTHON`, so that Spark's Pyt
 use the same Python as the driver.
 
 It joins a generated laundering network and hundreds of small random ledgers into one
-ledger, runs the build in local mode with tiny Arrow batches (so clusters span batches),
-and requires the routes to equal `lifo.sweep` and the labels and holdings to equal
-`lifo.fresh_trace`. A run with the defaults:
+ledger, and leaves half of its one-wallet clusters out of `membership`, so the job's own
+singletons are checked as well as listed ones. It runs the build in local mode with tiny
+Arrow batches (so clusters span batches), and requires the routes to equal `lifo.sweep`
+and the labels and holdings to equal `lifo.fresh_trace`. A run with the defaults:
 
 ```
-ledger: 15,081 transfers, 4,876 wallets, 2,987 clusters; 11,262 routes, 9,822 tainted transfers, 27 label rounds, 51 s
+ledger: 15,081 transfers, 4,876 wallets, 2,987 clusters (1,257 left out of membership); 11,262 routes, 9,822 tainted transfers, 27 label rounds, 102 s
   routes          11,262 expected  all equal
   stolen labels    9,822 expected  all equal
   holdings         1,186 expected  all equal
 ```
 
 [`results/check_local.log`](results/check_local.log) has this run and two more, with other
-seeds, partition counts, batch sizes and labels checkpoint intervals, up to 28,957
+seeds, partition counts, batch sizes, and labels checkpoint intervals, up to 28,957
 transfers. All were run with PySpark 4.0.5 on Java 21 and Python 3.10. Separately, the job
 ran end to end through `spark-submit` on Parquet files, with checkpoints on disk and
 `--labels-checkpoint-every 3`, and its labels and holdings matched as well.
+
+`PYTHONPATH=jobs python jobs/check_inputs.py` checks the input rules. It runs `violations`
+on one bad ledger per rule, each of which must be flagged by exactly that rule, and on a
+valid ledger, which must pass.
 
 ## The jump table
 
@@ -143,16 +156,19 @@ default 1 GB driver, one ran out of heap after nine regroups, so the check asks 
 
 ## Run it on Kubernetes
 
-1. Build and push the image from this folder:
-   `docker build -t registry.example.com/lifo-spark:0.1.0 . && docker push registry.example.com/lifo-spark:0.1.0`
-2. Install the Kubeflow Spark Operator with Helm, watching the `lifo` namespace:
+1. Build and push the image from this folder, for the nodes' architecture:
+   `docker buildx build --platform linux/amd64 -t registry.example.com/lifo-spark:0.1.0 --push .`
+   On an Apple-silicon Mac, a plain `docker build` makes an arm64 image that amd64 nodes
+   cannot run.
+2. `kubectl apply -f k8s/00-namespace-rbac.yaml`, then fill in a copy of the secret example
+   and apply it. The namespace has to exist before the operator is installed, because the
+   chart creates a service account and its permissions in each namespace it watches.
+3. Install the Kubeflow Spark Operator with Helm, watching the `lifo` namespace:
    ```
    helm repo add spark-operator https://kubeflow.github.io/spark-operator
    helm install spark-operator spark-operator/spark-operator \
      --namespace spark-operator --create-namespace --set "spark.jobNamespaces={lifo}"
    ```
-3. `kubectl apply -f k8s/00-namespace-rbac.yaml`, then fill in a copy of the secret example
-   and apply it.
 4. Put the three input tables under `s3a://lifo-lake/input/` as Delta tables.
 5. `kubectl apply -f k8s/10-build.sparkapplication.yaml`, then follow it with
    `kubectl get sparkapplication lifo-build -n lifo -w` and
@@ -170,13 +186,14 @@ the `spark` service account an IAM role (IRSA), and set
   its Arrow batches. The Python workers run outside the JVM heap, so they need
   `memoryOverhead`.
 - **Partitions.** Enough that no partition is much larger than the largest cluster.
-- **Rounds.** One less than the most hops a stolen unit travels from the hack, plus a last
-  round that finds nothing to change. The local check takes 27, and its deepest stolen unit
-  travels 28 hops. The benchmark counts hops per transaction instead: a transaction is one
-  deeper than its deepest stolen input, even when the units it takes from that input are
-  shallower. That overcounts, so the 1M network's 53 bounds its rounds at 52. Each round
-  joins only the changed labels against the pieces.
-- **Checkpoints.** Each round checkpoints its candidates, new labels and changed set. A round
+- **Rounds.** The rounds that change a label number one less than the most hops a stolen
+  unit travels from the hack, and one more round finds nothing to change. The job reports
+  the first count: 27 for the local check, whose deepest stolen unit travels 28 hops. The
+  benchmark counts hops per transaction instead: a transaction is one deeper than its
+  deepest stolen input, even when the units it takes from that input are shallower. That
+  overcounts, so the 1M network's 53 bounds its rounds at 52. Each round joins only the
+  changed labels against the pieces.
+- **Checkpoints.** Each round checkpoints its candidates, new labels, and changed set. A round
   reads the last round's frames several times, so without that the plan grows about
   ninefold a round; in a local test the driver ran out of memory building the fourth.
   Checkpointing the labels table rewrites it whole, and `--labels-checkpoint-every N` does
@@ -184,6 +201,8 @@ the `spark` service account an IAM role (IRSA), and set
   With `cleanCheckpoints` on, as in the manifests, Spark deletes an old checkpoint only once
   the driver has garbage-collected it, so every run, failed or not, leaves some behind. Give
   the checkpoint prefix a lifecycle rule.
+- **Validation.** The input checks shuffle the transfers once by `seq`, for uniqueness,
+  and once by wallet, sorted by `seq`, for the running balances.
 - **One writer.** Delta's default S3 log store allows one writer at a time, hence
   `concurrencyPolicy: Forbid`. Concurrent writers need the DynamoDB log store.
 

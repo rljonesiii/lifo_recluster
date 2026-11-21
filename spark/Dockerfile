@@ -1,5 +1,5 @@
-# lifo-spark: Spark 4.0.5 with Delta Lake, S3A and the lifo_spark jobs, for the Spark Operator.
-#   docker build -t registry.example.com/lifo-spark:0.1.0 .
+# lifo-spark: Spark 4.0.5 with Delta Lake, S3A, and the lifo_spark jobs, for the Spark Operator.
+#   docker buildx build --platform linux/amd64 -t registry.example.com/lifo-spark:0.1.0 --push .
 FROM apache/spark:4.0.5-scala2.13-java21-python3-ubuntu
 
 USER root
@@ -15,8 +15,9 @@ RUN set -ex; cd /opt/spark/jars; \
     chown spark:spark delta-*.jar hadoop-aws-*.jar bundle-*.jar
 
 # The sweep kernel runs in every executor's Python workers. These are the versions the
-# local check passed with, on the image's Python 3.10.
-RUN pip install --no-cache-dir numpy==2.2.6 numba==0.68.1 pandas==2.3.3 pyarrow==25.0.1
+# local checks passed with on the image's Python 3.10, their dependencies included.
+RUN pip install --no-cache-dir numpy==2.2.6 numba==0.68.1 llvmlite==0.50.0 pandas==2.3.3 \
+        python-dateutil==3.0.0 pytz==2026.6 tzdata==2026.6 six==1.17.0 pyarrow==25.0.1
 
 # The jobs, importable by the driver and every Python worker
 COPY jobs /opt/lifo/jobs

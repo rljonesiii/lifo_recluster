@@ -1,4 +1,4 @@
-"""Batch build on Spark: routes for every cluster, stolen labels, net flows and holdings.
+"""Batch build on Spark: routes for every cluster, stolen labels, net flows, and holdings.
 
     spark-submit build.py --transfers URI --sources URI --membership URI --out URI \\
         [--format delta|parquet] [--partitions 512] [--buckets 256] [--checkpoint-dir URI] \\
@@ -10,6 +10,8 @@ Inputs (Delta or Parquet, same --format):
   sources     wallet long, label int                       0 clean, >= 1 stolen
   membership  wallet long, cluster long                    cluster ids >= 0; a wallet left
                                                            out is its own cluster
+The inputs must be a valid ledger and clustering, by the rules lifo.Ledger enforces, with
+unique keys. main() checks them before the build; see violations().
 Outputs under --out: pieces, labels (stolen runs only), flows, holdings.
 
 Every step is a function from DataFrames to DataFrames; only main() reads and writes.
@@ -23,7 +25,7 @@ from lifo_spark.sweep import IN, OUT, READ, PIECES_SCHEMA, sweep_partitions
 
 
 def events(transfers: DataFrame, sources: DataFrame, membership: DataFrame) -> DataFrame:
-    """One event per (cluster, transfer): an inflow, an outflow or an internal read."""
+    """One event per (cluster, transfer): an inflow, an outflow, or an internal read."""
     def cluster_of(side):
         m = membership.select(F.col("wallet").alias(side), F.col("cluster").alias(f"c_{side}"))
         return lambda df: (df.join(m, side, "left")
@@ -110,7 +112,7 @@ def propagate(pieces: DataFrame, labels: DataFrame, changed: DataFrame,
     the graph is acyclic and the rounds end. From the stolen deposits, the rounds that
     change a label number one less than the most hops a stolen unit travels.
 
-    Each round materializes candidates, new and changed. A round reads the last round's
+    Each round materializes candidates, new, and changed. A round reads the last round's
     frames several times, so without that the plan grows about ninefold a round. labels
     is materialized every labels_checkpoint_every rounds; in between, its plan grows by
     two joins and a union a round. Returns (labels, rounds)."""
@@ -159,6 +161,41 @@ def build(transfers, sources, membership, partitions=512, labels_checkpoint_ever
     return dict(pieces=pieces, labels=labels, flows=flows, holdings=holdings), rounds
 
 
+def violations(transfers: DataFrame, sources: DataFrame, membership: DataFrame) -> dict:
+    """Rows that break a rule of a valid ledger and clustering, by rule: the rules
+    lifo.Ledger enforces, and the unique keys the joins assume. The theorems hold only for
+    valid inputs, and the sweep catches only a cluster-level overdraft, which a clustering
+    can hide."""
+    src = sources.select("wallet")
+    dup = lambda df, key: df.join(df.groupBy(key).count().where("count > 1"), key, "left_semi")
+    moves = (transfers.select(F.col("dst").alias("wallet"), "seq", F.col("amount").alias("d"))
+                      .unionByName(transfers.select(F.col("src").alias("wallet"), "seq",
+                                                    (-F.col("amount")).alias("d")))
+                      .join(src, "wallet", "left_anti"))
+    balance = F.sum("d").over(Window.partitionBy("wallet").orderBy("seq"))
+    return {
+        "seq not unique": dup(transfers, "seq"),
+        "amount not positive": transfers.where("amount <= 0"),
+        "self-transfer": transfers.where("src = dst"),
+        "negative wallet id": transfers.where("src < 0 OR dst < 0"),
+        "wallet overdraws": moves.withColumn("balance", balance).where("balance < 0"),
+        "source receives": transfers.join(src.toDF("dst"), "dst", "left_semi"),
+        "source listed twice": dup(sources, "wallet"),
+        "negative label": sources.where("label < 0"),
+        "wallet in two clusters": dup(membership, "wallet"),
+        "negative cluster id": membership.where("cluster < 0"),
+        "source clustered": membership.join(src, "wallet", "left_semi"),
+    }
+
+
+def validate(transfers: DataFrame, sources: DataFrame, membership: DataFrame) -> None:
+    """Stop before the build if any rule is broken, with the number of rows per rule."""
+    counts = {rule: df.count() for rule, df in violations(transfers, sources, membership).items()}
+    bad = {rule: n for rule, n in counts.items() if n}
+    if bad:
+        raise ValueError(f"invalid input, rows by rule: {bad}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     for name in ("transfers", "sources", "membership", "out"):
@@ -174,7 +211,9 @@ def main():
     if args.checkpoint_dir:
         spark.sparkContext.setCheckpointDir(args.checkpoint_dir)
     read = lambda name: spark.read.format(args.format).load(getattr(args, name))
-    out, rounds = build(read("transfers"), read("sources"), read("membership"), args.partitions,
+    transfers, sources, membership = (read(n) for n in ("transfers", "sources", "membership"))
+    validate(transfers, sources, membership)
+    out, rounds = build(transfers, sources, membership, args.partitions,
                         args.labels_checkpoint_every)
     out["pieces"] = (out["pieces"]
                      .withColumn("bucket", F.pmod(F.xxhash64("cluster"), F.lit(args.buckets)))

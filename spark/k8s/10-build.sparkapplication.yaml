@@ -1,4 +1,4 @@
-# One full build: routes for every cluster, stolen labels, flows and holdings, written as Delta
+# One full build: routes for every cluster, stolen labels, flows, and holdings, written as Delta
 # tables under s3a://lifo-lake/trace. Needs the Kubeflow Spark Operator watching namespace lifo.
 #   kubectl apply -f k8s/10-build.sparkapplication.yaml
 #   kubectl get sparkapplication lifo-build -n lifo -w
