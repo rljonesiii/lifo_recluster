@@ -1,21 +1,28 @@
 $ PYTHONPATH=jobs python jobs/check_local.py --repo ../lifo_recluster
-ledger: 15,081 transfers, 4,876 wallets, 2,987 clusters (1,257 left out of membership); 11,262 routes, 9,822 tainted transfers, 27 label rounds, 102 s
+ledger: 15,081 transfers, 4,876 wallets, 2,987 clusters (1,257 left out of membership); 11,262 routes, 9,822 tainted transfers, 27 label rounds, 46 s
   routes          11,262 expected  all equal
   stolen labels    9,822 expected  all equal
   holdings         1,186 expected  all equal
 (exit 0)
 
 $ PYTHONPATH=jobs python jobs/check_local.py --repo ../lifo_recluster --seed 2 --n-gen 10000 --n-small 500 --partitions 3 --batch 7 --labels-checkpoint-every 3
-ledger: 26,442 transfers, 8,983 wallets, 5,596 clusters (2,290 left out of membership); 19,955 routes, 16,144 tainted transfers, 37 label rounds, 141 s
+ledger: 26,442 transfers, 8,983 wallets, 5,596 clusters (2,290 left out of membership); 19,955 routes, 16,144 tainted transfers, 37 label rounds, 72 s
   routes          19,955 expected  all equal
   stolen labels   16,144 expected  all equal
   holdings         1,985 expected  all equal
 (exit 0)
 
 $ PYTHONPATH=jobs python jobs/check_local.py --repo ../lifo_recluster --seed 3 --n-gen 3000 --n-small 800 --partitions 16 --batch 1000 --labels-checkpoint-every 4
-ledger: 28,957 transfers, 7,930 wallets, 3,665 clusters (1,274 left out of membership); 19,984 routes, 20,328 tainted transfers, 22 label rounds, 120 s
+ledger: 28,957 transfers, 7,930 wallets, 3,665 clusters (1,274 left out of membership); 19,984 routes, 20,328 tainted transfers, 22 label rounds, 59 s
   routes          19,984 expected  all equal
   stolen labels   20,328 expected  all equal
   holdings         2,022 expected  all equal
+(exit 0)
+
+$ PYTHONPATH=jobs python jobs/check_local.py --repo ../lifo_recluster --jump-table
+ledger: 15,081 transfers, 4,876 wallets, 2,987 clusters (1,257 left out of membership); 11,262 routes, 9,822 tainted transfers, 12 label rounds over heads, 37 s
+  routes          11,262 expected  all equal
+  stolen labels    9,822 expected  all equal
+  holdings         1,186 expected  all equal
 (exit 0)
 

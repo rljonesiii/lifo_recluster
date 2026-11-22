@@ -4,9 +4,9 @@ A sketch of running the lifo_recluster trace on a full ledger. A PySpark job rou
 cluster in parallel, propagates stolen labels in rounds, and sums holdings. It is packaged
 for the Kubeflow Spark Operator, with Delta Lake tables on S3-compatible storage. The job
 covers the batch build. A second module, `jumps.py`, adds the jump table and incremental
-reclustering; it is checked locally but not yet wired into a job, and the end of this file
-lists what an incremental deployment still needs. The theorems it cites are in
-[the proofs](../docs/proofs.md).
+reclustering. The job builds the table with `--jump-table`; the reclustering is checked
+locally but not yet wired into a job, and the end of this file lists what an incremental
+deployment still needs. The theorems it cites are in [the proofs](../docs/proofs.md).
 
 ## Layout
 
@@ -28,6 +28,8 @@ k8s/20-rebuild.scheduledsparkapplication.yaml  the same build every night
 
 ## How the job works
 
+The job first checks its inputs (see [Inputs](#inputs)), then runs four steps.
+
 1. **Events.** One row per cluster and transfer: an inflow, an outflow, or an internal read.
 2. **Routes.** Repartition by cluster, sort by (cluster, seq), and sweep in `mapInPandas`.
    A partition's generator carries the current cluster's block stack across Arrow
@@ -39,11 +41,15 @@ k8s/20-rebuild.scheduledsparkapplication.yaml  the same build every night
    whose label changed (the equality cutoff). Routes point back in time (Theorem 6), so the
    rounds reach a fixed point. Each round checkpoints its candidates, new labels, and changed
    set to the store, and the labels table every `--labels-checkpoint-every` rounds (1 by
-   default).
+   default). The pieces are hash-partitioned once by `s` and by `t` and cached, so a round
+   shuffles the frontier rather than the pieces, and the job logs one line a round. With
+   `--jump-table`, the rounds run over heads only, and one join fills in every other
+   payment ([docs/jump-table.md](docs/jump-table.md)).
 4. **Flows and holdings.** Net stolen flow per wallet, summed per cluster (Theorem 5).
 
 Outputs under `--out`: `pieces` (partitioned by a hash bucket of the cluster), `labels`,
-`flows`, and `holdings`.
+`flows`, and `holdings`. With `--jump-table`, they add `jumps` and `hpieces`, the state a
+reclustering starts from.
 
 ## Inputs
 
@@ -84,11 +90,13 @@ ledger: 15,081 transfers, 4,876 wallets, 2,987 clusters (1,257 left out of membe
   holdings         1,186 expected  all equal
 ```
 
-[`results/check_local.log`](results/check_local.log) has this run and two more, with other
-seeds, partition counts, batch sizes, and labels checkpoint intervals, up to 28,957
-transfers. All were run with PySpark 4.0.5 on Java 21 and Python 3.10. Separately, the job
-ran end to end through `spark-submit` on Parquet files, with checkpoints on disk and
-`--labels-checkpoint-every 3`, and its labels and holdings matched as well.
+[`results/check_local.log`](results/check_local.log) has this run and three more: two with
+other seeds, partition counts, batch sizes, and labels checkpoint intervals, up to 28,957
+transfers, and one with `--jump-table`, which takes 12 rounds over heads against 27. All
+were run with PySpark 4.0.5 on Java 21 and Python 3.10. Separately, the job ran end to end
+through `spark-submit` on Parquet files, with checkpoints on disk and
+`--labels-checkpoint-every 3`, and again with `--jump-table`, and its labels and holdings
+matched both times.
 
 `PYTHONPATH=jobs python jobs/check_inputs.py` checks the input rules. It runs `violations`
 on one bad ledger per rule, each of which must be flagged by exactly that rule, and on a
@@ -179,6 +187,52 @@ On AWS S3, drop the four MinIO settings under `hadoopConf` and the `secretKeyRef
 the `spark` service account an IAM role (IRSA), and set
 `fs.s3a.aws.credentials.provider` to
 `software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider`.
+
+## Iterative algorithms and skew
+
+A Spark loop builds a new plan every round, and a transaction graph has heavy-tailed
+degrees. This is how the sketch handles the problems that follow from each, measured on
+the local check's 15,081-transfer ledger.
+
+- **Lineage.** Each round checkpoints its frames; see Checkpoints under Sizing.
+- **The cost of a round.** A round runs about 21 small jobs, so the sketch cuts rounds:
+  the equality cutoff limits each round to labels that change, and `--jump-table` runs
+  the rounds over heads only, 12 against 27. The pieces are the static side of every
+  round's joins, so they are partitioned once by `s` and by `t` and cached, the pattern
+  PageRank uses for its links. That cut the rows a round shuffles from 35,747 to 18,648,
+  from 1.9 to 1.0 times the pieces table.
+- **Partition creep.** A union keeps both sides' partitions, so a broadcast update would
+  add partitions to labels every round. The update shuffles instead, because the planner
+  can't size a checkpointed frame, and labels held at 2 partitions over 27 rounds; a
+  coalesce caps them anyway, without a shuffle. Repartitioning labels by `t` every round
+  also holds the count, but it moved 36% more rows a round.
+- **Leaks.** Nothing is cached per round, the partitioned pieces are dropped when the loop
+  ends, and old checkpoints need the cleaner and a lifecycle rule (Sizing). A long local
+  session also needs a bigger driver heap and a short job history, as `check_jumps.py`
+  sets.
+- **Retries.** A recomputed partition gives the same rows, because every step is
+  deterministic: no random values or row ids, buckets hash the cluster, the sweep sorts
+  by `(cluster, seq)` with `seq` unique (the input checks enforce it), run sets are sorted
+  before they are compared, and re-pointing takes the latest seed by its unique id. The
+  outputs are overwritten, so a failed run reruns whole.
+- **Plans that change mid-loop.** The job logs one line a round: the labels that changed,
+  the input the most pieces read, the labels' partitions, and the time.
+- **Hub wallets and hot inputs.** An exchange's wallet, or a deposit read by many
+  payments, is a hot key in the joins on wallet, on `s` (relabeling), and on `head` (the
+  fill-in). AQE's skew join, on by default, splits a shuffled join's partition that is
+  five times the median and over 256 MB. Unclustered wallets get ids before anything
+  shuffles on the cluster, so nulls never pile into one partition. The per-round log
+  names the hottest input, which is where a broadcast path for hot keys would start.
+  With `--jump-table`, path compression concentrates reads on heads: in the first round,
+  input 50 is read by 224 head pieces, against 18 pieces without the table.
+- **Range joins inside a hot key.** Relabeling, the fill-in, and re-pointing join on a key
+  and keep the overlapping ranges, so every pair inside one key is compared. Re-pointing
+  broadcasts the seeds, which are few. Bucketing the axis would bound the pairs inside a
+  hot key; the sketch doesn't do that yet.
+- **Giant clusters.** A cluster's sweep, and a wallet's balance check, each run in one
+  task; see Not in this sketch.
+- **Skew that moves.** Each round is a new query, so AQE plans it on that round's sizes,
+  and the log shows which input is hot in which round.
 
 ## Sizing
 

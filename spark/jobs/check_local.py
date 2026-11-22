@@ -60,7 +60,7 @@ def expected(L, blocks):
     return routes, labels, {c: v for c, v in hold.items() if v}, cluster_of
 
 
-def actual(spark, L, blocks, partitions, labels_checkpoint_every):
+def actual(spark, L, blocks, partitions, labels_checkpoint_every, jump_table=False):
     import pandas as pd
     from lifo_spark.build import build
 
@@ -70,7 +70,8 @@ def actual(spark, L, blocks, partitions, labels_checkpoint_every):
                   "label": pd.Series([lab for lab in L.source_label if lab >= 0], dtype="int32")})
     membership = df({"wallet": [w for b in blocks for w in b],
                      "cluster": [i for i, b in enumerate(blocks) for _ in b]})
-    out, rounds = build(transfers, sources, membership, partitions, labels_checkpoint_every)
+    out, rounds = build(transfers, sources, membership, partitions, labels_checkpoint_every,
+                        jump_table)
     pieces = out["pieces"].toPandas().sort_values(["t", "k"])
     routes = {t: tuple(g[["s", "offset", "length"]].to_numpy().ravel().tolist())
               for t, g in pieces.groupby("t")}
@@ -92,6 +93,8 @@ def main():
                     help="Arrow batch size; small, so clusters span batches and the carried "
                          "stack is exercised")
     ap.add_argument("--labels-checkpoint-every", type=int, default=1)
+    ap.add_argument("--jump-table", action="store_true",
+                    help="propagate over heads only, as the job's --jump-table does")
     args = ap.parse_args()
     sys.path.insert(0, args.repo)
 
@@ -108,7 +111,8 @@ def main():
              .getOrCreate())
     spark.sparkContext.setLogLevel("ERROR")
     got_routes, got_labels, got_hold, rounds = actual(spark, L, listed, args.partitions,
-                                                      args.labels_checkpoint_every)
+                                                      args.labels_checkpoint_every,
+                                                      args.jump_table)
     spark.stop()
 
     checks = [("routes", want_routes, got_routes), ("stolen labels", want_labels, got_labels),
@@ -116,7 +120,8 @@ def main():
     print(f"ledger: {L.n:,} transfers, {L.W:,} wallets, {len(blocks):,} clusters "
           f"({len(blocks) - len(listed):,} left out of membership); "
           f"{len(got_routes):,} routes, {len(got_labels):,} tainted transfers, "
-          f"{rounds} label rounds, {time.time() - t0:.0f} s")
+          f"{rounds} label rounds{' over heads' if args.jump_table else ''}, "
+          f"{time.time() - t0:.0f} s")
     ok = True
     for name, want, got in checks:
         bad = [k for k in set(want) | set(got) if want.get(k) != got.get(k)]

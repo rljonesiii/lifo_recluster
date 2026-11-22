@@ -2,7 +2,7 @@
 
     spark-submit build.py --transfers URI --sources URI --membership URI --out URI \\
         [--format delta|parquet] [--partitions 512] [--buckets 256] [--checkpoint-dir URI] \\
-        [--labels-checkpoint-every 1]
+        [--labels-checkpoint-every 1] [--jump-table]
 
 Inputs (Delta or Parquet, same --format):
   transfers   seq long, src long, dst long, amount long   one row per transfer; seq is the
@@ -12,11 +12,13 @@ Inputs (Delta or Parquet, same --format):
                                                            out is its own cluster
 The inputs must be a valid ledger and clustering, by the rules lifo.Ledger enforces, with
 unique keys. main() checks them before the build; see violations().
-Outputs under --out: pieces, labels (stolen runs only), flows, holdings.
+Outputs under --out: pieces, labels (stolen runs only), flows, and holdings; with
+--jump-table, also the jump table (jumps) and the heads' pieces (hpieces).
 
 Every step is a function from DataFrames to DataFrames; only main() reads and writes.
 """
 import argparse
+import time
 
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as F
@@ -105,8 +107,28 @@ def materialize(df: DataFrame) -> DataFrame:
     return df.checkpoint() if reliable else df.localCheckpoint()
 
 
+def keyed(pieces: DataFrame, partitions: int):
+    """The pieces twice, hash-partitioned and cached: by s, to find the readers of the
+    changed labels, and by t, to recompute those readers. The pieces are the static side of
+    every round's joins, so with this layout a round shuffles the frontier, not the pieces."""
+    return tuple(pieces.repartition(partitions, key).cache() for key in ("s", "t"))
+
+
+def round_line(number: int, changed: int, work: DataFrame, labels, start: float) -> str:
+    """One log line for a label round: the labels that changed, the input that the most of
+    the round's pieces read (the frontier's hottest key), the labels' partitions when they
+    were materialized, and the time."""
+    hot = work.groupBy("s").count().orderBy(F.desc("count"), "s").first()
+    parts = labels.rdd.getNumPartitions() if labels is not None else None
+    count = lambda n, noun: f"{n:,} {noun}{'' if n == 1 else 's'}"
+    return (f"round {number}: {count(changed, 'label')} changed; "
+            + (f"hottest input {hot['s']} read by {count(hot['count'], 'piece')}; " if hot else "")
+            + (f"labels in {count(parts, 'partition')}; " if parts else "")
+            + f"{time.time() - start:.1f} s")
+
+
 def propagate(pieces: DataFrame, labels: DataFrame, changed: DataFrame,
-              labels_checkpoint_every=1, max_rounds=100_000):
+              labels_checkpoint_every=1, max_rounds=100_000, partitions=None, log=None):
     """Rounds to a fixed point: recompute every reader of a changed label, keep the ones
     whose label changed (the equality cutoff). Routes point back in time (Theorem 6), so
     the graph is acyclic and the rounds end. From the stolen deposits, the rounds that
@@ -115,25 +137,44 @@ def propagate(pieces: DataFrame, labels: DataFrame, changed: DataFrame,
     Each round materializes candidates, new, and changed. A round reads the last round's
     frames several times, so without that the plan grows about ninefold a round. labels
     is materialized every labels_checkpoint_every rounds; in between, its plan grows by
-    two joins and a union a round. Returns (labels, rounds)."""
+    two joins and a union a round. A union keeps both sides' partitions, so a broadcast
+    update would add partitions every round; a coalesce caps them when labels are
+    materialized, without a shuffle.
+
+    The pieces are partitioned once by each join key (keyed), and the cached copies are
+    dropped at the end. log, if given, gets one line a round. Returns (labels, rounds)."""
     if labels_checkpoint_every < 1:
         raise ValueError("labels_checkpoint_every must be 1 or more")
     due = lambda r: (r + 1) % labels_checkpoint_every == 0  # materialize labels after round r
-    for rounds in range(max_rounds):
-        candidates = materialize(pieces.join(changed.withColumnRenamed("t", "s"), "s", "left_semi")
-                                       .select("t").distinct())
-        new = materialize(relabel(candidates, pieces, labels))
-        changed = materialize(
-            candidates.join(as_sets(new, "new"), "t", "left")
-                      .join(as_sets(labels.join(candidates, "t", "left_semi"), "old"), "t", "left")
-                      .where(~F.col("new").eqNullSafe(F.col("old")))
-                      .select("t"))
-        if changed.isEmpty():
-            return (labels if due(rounds - 1) else materialize(labels)), rounds
-        update = (labels.join(changed, "t", "left_anti")
-                        .unionByName(new.join(changed, "t", "left_semi")))
-        labels = materialize(update) if due(rounds) else update
-    raise RuntimeError("label propagation did not converge")
+    n = partitions or int(pieces.sparkSession.conf.get("spark.sql.shuffle.partitions"))
+    by_s, by_t = keyed(pieces, n)
+    try:
+        for rounds in range(max_rounds):
+            start = time.time()
+            readers = by_s.join(changed.withColumnRenamed("t", "s"), "s", "left_semi")
+            candidates = materialize(readers.select("t").distinct())
+            new = materialize(relabel(candidates, by_t, labels))
+            old = as_sets(labels.join(candidates, "t", "left_semi"), "old")
+            changed = materialize(candidates.join(as_sets(new, "new"), "t", "left")
+                                            .join(old, "t", "left")
+                                            .where(~F.col("new").eqNullSafe(F.col("old")))
+                                            .select("t"))
+            size = changed.count()
+            work = by_t.join(candidates, "t", "left_semi")
+            if size == 0:
+                labels = labels if due(rounds - 1) else materialize(labels.coalesce(n))
+                if log:
+                    log(round_line(rounds + 1, 0, work, labels, start))
+                return labels, rounds
+            update = (labels.join(changed, "t", "left_anti")
+                            .unionByName(new.join(changed, "t", "left_semi")))
+            labels = materialize(update.coalesce(n)) if due(rounds) else update
+            if log:
+                log(round_line(rounds + 1, size, work, labels if due(rounds) else None, start))
+        raise RuntimeError("label propagation did not converge")
+    finally:
+        by_s.unpersist()
+        by_t.unpersist()
 
 
 def flows_and_holdings(transfers, sources, membership, labels):
@@ -153,12 +194,21 @@ def flows_and_holdings(transfers, sources, membership, labels):
     return flows, holdings
 
 
-def build(transfers, sources, membership, partitions=512, labels_checkpoint_every=1):
+def build(transfers, sources, membership, partitions=512, labels_checkpoint_every=1,
+          jump_table=False, log=None):
+    """The batch build. With jump_table, labels propagate over heads only (jumps.build), and
+    the outputs add the jump table and the heads' pieces, which a reclustering starts from."""
     pieces = routes(events(transfers, sources, membership), partitions).cache()
     deposits = materialize(stolen_deposits(transfers, sources))
-    labels, rounds = propagate(pieces, deposits, deposits.select("t"), labels_checkpoint_every)
-    flows, holdings = flows_and_holdings(transfers, sources, membership, labels)
-    return dict(pieces=pieces, labels=labels, flows=flows, holdings=holdings), rounds
+    if jump_table:
+        from lifo_spark import jumps                  # jumps imports this module
+        state, rounds = jumps.build(pieces, deposits, partitions=partitions, log=log)
+    else:
+        labels, rounds = propagate(pieces, deposits, deposits.select("t"),
+                                   labels_checkpoint_every, partitions=partitions, log=log)
+        state = dict(pieces=pieces, labels=labels)
+    flows, holdings = flows_and_holdings(transfers, sources, membership, state["labels"])
+    return dict(state, flows=flows, holdings=holdings), rounds
 
 
 def violations(transfers: DataFrame, sources: DataFrame, membership: DataFrame) -> dict:
@@ -206,6 +256,9 @@ def main():
     ap.add_argument("--checkpoint-dir", help="reliable storage for the per-round checkpoints")
     ap.add_argument("--labels-checkpoint-every", type=int, default=1, metavar="N",
                     help="materialize the labels table every N rounds instead of every round")
+    ap.add_argument("--jump-table", action="store_true",
+                    help="propagate labels over heads only, and write the jump table too; "
+                         "labels are then materialized every round")
     args = ap.parse_args()
     spark = SparkSession.builder.appName("lifo-build").getOrCreate()
     if args.checkpoint_dir:
@@ -214,7 +267,8 @@ def main():
     transfers, sources, membership = (read(n) for n in ("transfers", "sources", "membership"))
     validate(transfers, sources, membership)
     out, rounds = build(transfers, sources, membership, args.partitions,
-                        args.labels_checkpoint_every)
+                        args.labels_checkpoint_every, args.jump_table,
+                        log=lambda line: print(f"lifo-build: {line}", flush=True))
     out["pieces"] = (out["pieces"]
                      .withColumn("bucket", F.pmod(F.xxhash64("cluster"), F.lit(args.buckets)))
                      .repartition(args.buckets, "bucket").sortWithinPartitions("cluster", "s"))

@@ -13,10 +13,12 @@ every entry that lies under a seed.
 
 spark/docs/jump-table.md has the design, a worked example, and the proof.
 """
+import time
+
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from lifo_spark.build import as_sets, events, materialize, relabel, routes
+from lifo_spark.build import as_sets, events, keyed, materialize, relabel, round_line, routes
 
 
 def build_jumps(pieces: DataFrame) -> DataFrame:
@@ -62,34 +64,52 @@ def fill_in(jumps: DataFrame, labels: DataFrame) -> DataFrame:
                          (F.col("hi") - F.col("lo")).alias("length"), "label"))
 
 
-def propagate_from(pieces: DataFrame, labels: DataFrame, cand: DataFrame, max_rounds=100_000):
+def propagate_from(pieces: DataFrame, labels: DataFrame, cand: DataFrame, max_rounds=100_000,
+                   partitions=None, log=None):
     """Recompute cand, keep the labels that changed (the equality cutoff), then recompute
-    their readers, until nothing changes. Returns (labels, rounds, changed payments)."""
+    their readers, until nothing changes. As in build.propagate, the head pieces are
+    partitioned once by each join key, and a coalesce caps the partitions of labels and of
+    the changed set. Returns (labels, rounds, changed payments)."""
+    n = partitions or int(pieces.sparkSession.conf.get("spark.sql.shuffle.partitions"))
+    by_s, by_t = keyed(pieces, n)
     touched = None
-    for rounds in range(max_rounds):
-        new = materialize(relabel(cand, pieces, labels))
-        changed = materialize(
-            cand.join(as_sets(new, "new"), "t", "left")
-                .join(as_sets(labels.join(cand, "t", "left_semi"), "old"), "t", "left")
-                .where(~F.col("new").eqNullSafe(F.col("old")))
-                .select("t"))
-        if changed.isEmpty():
-            return labels, rounds, (changed if touched is None else touched)
-        touched = changed if touched is None else materialize(touched.unionByName(changed))
-        labels = materialize(labels.join(changed, "t", "left_anti")
-                                   .unionByName(new.join(changed, "t", "left_semi")))
-        cand = materialize(pieces.join(changed.withColumnRenamed("t", "s"), "s", "left_semi")
-                                 .select("t").distinct())
-    raise RuntimeError("label propagation did not converge")
+    try:
+        for rounds in range(max_rounds):
+            start = time.time()
+            work = by_t.join(cand, "t", "left_semi")
+            new = materialize(relabel(cand, by_t, labels))
+            old = as_sets(labels.join(cand, "t", "left_semi"), "old")
+            changed = materialize(cand.join(as_sets(new, "new"), "t", "left")
+                                      .join(old, "t", "left")
+                                      .where(~F.col("new").eqNullSafe(F.col("old")))
+                                      .select("t"))
+            size = changed.count()
+            if size == 0:
+                if log:
+                    log(round_line(rounds + 1, 0, work, labels, start))
+                return labels, rounds, (changed if touched is None else touched)
+            touched = (changed if touched is None
+                       else materialize(touched.unionByName(changed).coalesce(n)))
+            labels = materialize(labels.join(changed, "t", "left_anti")
+                                       .unionByName(new.join(changed, "t", "left_semi"))
+                                       .coalesce(n))
+            cand = materialize(by_s.join(changed.withColumnRenamed("t", "s"), "s", "left_semi")
+                                   .select("t").distinct())
+            if log:
+                log(round_line(rounds + 1, size, work, labels, start))
+        raise RuntimeError("label propagation did not converge")
+    finally:
+        by_s.unpersist()
+        by_t.unpersist()
 
 
-def build(pieces: DataFrame, deposits: DataFrame):
+def build(pieces: DataFrame, deposits: DataFrame, partitions=None, log=None):
     """The batch build with a jump table: rounds over heads, then one fill-in join."""
     jumps = build_jumps(pieces)
     hpieces = materialize(resolve(pieces, jumps))
     first = (hpieces.join(deposits.select(F.col("t").alias("s")), "s", "left_semi")
                     .select("t").distinct())
-    heads, rounds, _ = propagate_from(hpieces, deposits, first)
+    heads, rounds, _ = propagate_from(hpieces, deposits, first, partitions=partitions, log=log)
     labels = materialize(heads.unionByName(fill_in(jumps, heads)))
     return dict(pieces=pieces, jumps=jumps, hpieces=hpieces, labels=labels), rounds
 

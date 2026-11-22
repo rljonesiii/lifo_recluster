@@ -6,7 +6,7 @@ On Spark, label propagation takes one round per hop, and each round runs several
 
 ## Why rounds are the cost
 
-Label propagation runs in time order. Each payment's label, which marks its money as stolen or clean, is made of slices of earlier payments' labels (the [labels-from-pieces lemma](../../docs/proofs.md#data-structures)). The engines propagate with a heap on one machine, where a long path costs little. On Spark, every round of [`propagate`](../jobs/lifo_spark/build.py#L108) runs several joins, so a change that travels 10 hops takes 10 rounds, and the number of rounds grows linearly with the longest path a change travels.
+Label propagation runs in time order. Each payment's label, which marks its money as stolen or clean, is made of slices of earlier payments' labels (the [labels-from-pieces lemma](../../docs/proofs.md#data-structures)). The engines propagate with a heap on one machine, where a long path costs little. On Spark, every round of [`propagate`](../jobs/lifo_spark/build.py#L130) runs several joins, so a change that travels 10 hops takes 10 rounds, and the number of rounds grows linearly with the longest path a change travels.
 
 Most hops pass on a single slice of one earlier payment, and a slice of a slice is still a slice, so those hops form chains. Forks need no special handling: each branch of a fork is still one slice of the same block, so it stays in its chain. Composing each chain once and storing the result lets a change cross the whole chain in one step.
 
@@ -28,19 +28,19 @@ jumps(t, head, offset, length)    t carries units [offset, offset + length) of h
 
 Like routes, the table records positions only, not labels, so it depends only on the ledger and the clustering.
 
-**Building it.** Compose slices: if *t* = *s*[*o*, *o* + ℓ) and *s* = *h*[*o*ₛ, *o*ₛ + *a*ₛ), then *t* = *h*[*o*ₛ + *o*, *o*ₛ + *o* + ℓ). One pass in time order does this, or about log₂(longest chain) rounds of pointer jumping on Spark ([`build_jumps`](../jobs/lifo_spark/jumps.py#L22)): every pass-through starts out pointing at its input, and each round composes every pointer with its target's, until every pointer lands on a head. Resolving the heads' own routes the same way ([`resolve`](../jobs/lifo_spark/jumps.py#L41)) gives the **head pieces**, each pointing at a head.
+**Building it.** Compose slices: if *t* = *s*[*o*, *o* + ℓ) and *s* = *h*[*o*ₛ, *o*ₛ + *a*ₛ), then *t* = *h*[*o*ₛ + *o*, *o*ₛ + *o* + ℓ). One pass in time order does this, or about log₂(longest chain) rounds of pointer jumping on Spark ([`build_jumps`](../jobs/lifo_spark/jumps.py#L24)): every pass-through starts out pointing at its input, and each round composes every pointer with its target's, until every pointer lands on a head. Resolving the heads' own routes the same way ([`resolve`](../jobs/lifo_spark/jumps.py#L43)) gives the **head pieces**, each pointing at a head.
 
-**Labels in a batch build.** [`build`](../jobs/lifo_spark/jumps.py#L86) propagates over heads only, starting from the deposits: each round recomputes, from their head pieces, the heads that read a head whose label just changed. Then one join fills in every pass-through payment ([`fill_in`](../jobs/lifo_spark/jumps.py#L51)), since its label is the slice [offset, offset + length) of its head's. A single machine would keep an index from each head to the heads that read it. On Spark, a join of the head pieces with the changed heads finds them instead.
+**Labels in a batch build.** [`build`](../jobs/lifo_spark/jumps.py#L106) propagates over heads only, starting from the deposits: each round recomputes, from their head pieces, the heads that read a head whose label just changed. Then one join fills in every pass-through payment ([`fill_in`](../jobs/lifo_spark/jumps.py#L53)), since its label is the slice [offset, offset + length) of its head's. A single machine would keep an index from each head to the heads that read it. On Spark, a join of the head pieces with the changed heads finds them instead. The job runs this build with `--jump-table`, and, as in its other loop, partitions the head pieces once by `s` and by `t`, so a round shuffles the frontier rather than the table.
 
 ## After a reclustering
 
-[`recluster`](../jobs/lifo_spark/jumps.py#L126) takes five steps.
+[`recluster`](../jobs/lifo_spark/jumps.py#L146) takes five steps.
 
 1. **Find the seeds.** Re-sweep only the clusters whose member set changed, found by hashing each cluster's members, and compare their routes with the old ones. By [Theorem 4](../../docs/proofs.md#factorization), no other route can change.
 2. **Update the jump table in one join.** Make each seed a head, and resolve its new pieces to heads. Re-point every row and every head piece that lies under a seed: it is later than the seed, and its range of the seed's old head falls inside the seed's old range. Subtract the seed's old offset, and send an entry under two seeds to the later one. Only a seed that was a pass-through, and that some payment reads, can have entries under it. A seed that was already a head keeps its entries, since they already point at it. An internal transfer has no readers, and [skipping it matters](#why-a-seed-needs-a-reader).
 3. **Propagate over heads only,** in rounds that start from the seeds. Recompute each head's label from its head pieces. If the label changed, recompute the heads that read it. If it did not change, stop there.
 4. **Fill in** the pass-through payments whose head's label changed, in one join: label(*t*) is the slice [offset, offset + length) of label(head).
-5. **Update holdings** from the new labels ([`flows_and_holdings`](../jobs/lifo_spark/build.py#L139), by Theorem 5).
+5. **Update holdings** from the new labels ([`flows_and_holdings`](../jobs/lifo_spark/build.py#L180), by Theorem 5).
 
 ### Why the table needs no rounds
 
