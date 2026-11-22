@@ -1,6 +1,7 @@
 """Exactness check of the jump table, in local mode, against lifo_recluster.
 
-    PYTHONPATH=jobs python jobs/check_jumps.py --repo .. [--steps 6]
+    PYTHONPATH=jobs python jobs/check_jumps.py --repo .. [--steps 6] [--hot-key-rows N] \
+        [--chunk-events N]
 
 Builds the combined ledger of check_local.py, runs the batch build with a jump table,
 then applies random merges and splits one at a time with jumps.recluster. After the build
@@ -46,6 +47,8 @@ def main():
     ap.add_argument("--steps", type=int, default=6)
     ap.add_argument("--partitions", type=int, default=8)
     ap.add_argument("--driver-memory", default="3g")
+    ap.add_argument("--hot-key-rows", type=int, help="the job's --hot-key-rows")
+    ap.add_argument("--chunk-events", type=int, help="the job's --chunk-events")
     args = ap.parse_args()
     sys.path.insert(0, args.repo)
 
@@ -94,11 +97,12 @@ def main():
 
     t0 = time.time()
     m = membership(blocks)
-    pieces = materialize(routes(events(transfers, sources, m), args.partitions))
+    pieces = materialize(routes(events(transfers, sources, m), args.partitions,
+                                args.chunk_events))
     from lifo_spark.build import propagate
     deposits = materialize(stolen_deposits(transfers, sources))
     _, full_rounds = propagate(pieces, deposits, deposits.select("t"))
-    state, rounds = J.build(pieces, deposits)
+    state, rounds = J.build(pieces, deposits, hot_key_rows=args.hot_key_rows)
     print(f"ledger: {L.n:,} transfers, {L.W:,} wallets, {len(blocks):,} clusters; "
           f"{state['jumps'].count():,} jump rows, {state['hpieces'].select('t').distinct().count():,} "
           f"payments with head routes")
@@ -108,7 +112,8 @@ def main():
     for step in range(args.steps):
         new_blocks, what = random_change(rng, L, blocks)
         m2 = membership(new_blocks)
-        state, c = J.recluster(transfers, sources, m, m2, state, args.partitions)
+        state, c = J.recluster(transfers, sources, m, m2, state, args.partitions,
+                               args.hot_key_rows, args.chunk_events)
         ok &= check(state, m2, new_blocks, f"{step + 1}. {what}",
                     f"seeds {c['seeds']}, re-pointed {c['repointed']} rows and {c['repointed_pieces']} "
                     f"head pieces, head rounds {c['rounds']}, "

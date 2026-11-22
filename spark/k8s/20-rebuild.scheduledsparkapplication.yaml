@@ -26,6 +26,9 @@ spec:
       - --partitions=2048
       - --buckets=256
       - --labels-checkpoint-every=1  # raise it to rewrite the labels table less often
+      - --hot-key-rows=1000000       # keys with more rows join by broadcast
+      - --chunk-events=10000000      # clusters with more events sweep in chunks
+      - --balance-bins=4096          # running balances in time bins
     sparkConf:
       spark.sql.extensions: io.delta.sql.DeltaSparkSessionExtension
       spark.sql.catalog.spark_catalog: org.apache.spark.sql.delta.catalog.DeltaCatalog

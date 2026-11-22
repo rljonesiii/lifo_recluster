@@ -1,0 +1,23 @@
+$ PYTHONPATH=jobs python jobs/check_skew.py --repo ..
+random clusters, seed 1: 667 events, chunks of 50: 4 giant clusters swept in 16 chunks; debts in 11 chunks, settled over 14 staircase steps; pieces equal one sweep
+random clusters, seed 2: 4,238 events, chunks of 7: 3 giant clusters swept in 607 chunks; debts in 538 chunks, settled over 1,034 staircase steps; pieces equal one sweep
+random clusters, seed 3: 1,249 events, chunks of 3: 8 giant clusters swept in 419 chunks; debts in 313 chunks, settled over 659 staircase steps; pieces equal one sweep
+random clusters, seed 4: 6,809 events, chunks of 400: 2 giant clusters swept in 18 chunks; debts in 14 chunks, settled over 14 staircase steps; pieces equal one sweep
+random clusters, seed 5: 183 events, chunks of 1: 6 giant clusters swept in 183 chunks; debts in 91 chunks, settled over 264 staircase steps; pieces equal one sweep
+
+ledger: 32,337 transfers, 6,063 wallets, 5,088 clusters. The exchange's hot wallet is in 15,682 transfers, and its cluster has 27,836 events. The most-read input is read by 3,522 pieces, and the busiest head has 4,347 of the 22,318 jump rows.
+no skew flags: 5 label rounds; routes, labels, and holdings all equal
+--hot-key-rows 100 --chunk-events 2048: 5 label rounds; routes, labels, and holdings all equal
+--hot-key-rows 100 --chunk-events 2048 --jump-table: 1 label round over heads; routes, labels, and holdings all equal
+hot keys over 100 rows, found once per build: 42 wallets, 2 inputs, 2 heads
+
+records read by the largest / median task (tasks) of the step's most skewed stage;
+broadcast joins and partition coalescing off
+step                                       as is       AQE skew join        with the fix  fix
+membership join, on wallet   13,841 / 1,403 (16)  5,311 / 2,141 (32)  1,488 / 1,126 (96)  hot wallets by broadcast
+relabel, on input                3,558 / 56 (16)      309 / 283 (16)      309 / 283 (16)  hot inputs by broadcast
+fill-in, on head              5,688 / 1,587 (16)  5,688 / 1,587 (16)  1,699 / 1,341 (32)  hot heads by broadcast
+overdraft check, per wallet  18,638 / 3,011 (16) 18,638 / 3,011 (16)  5,103 / 4,126 (16)  64 time bins
+sweep, per cluster           29,418 / 2,062 (16) 29,418 / 2,062 (16)  4,016 / 1,969 (16)  chunks of 2,048 events
+ALL EQUAL (190 s)
+(exit 0)

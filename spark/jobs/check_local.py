@@ -1,12 +1,15 @@
 """Exactness check of the Spark build, in local mode, against lifo_recluster.
 
-    PYTHONPATH=jobs python jobs/check_local.py --repo .. [--n-gen 5000]
+    PYTHONPATH=jobs python jobs/check_local.py --repo .. [--n-gen 5000] [--jump-table] \
+        [--hot-key-rows N] [--chunk-events N]
 
 Builds one ledger out of a generated laundering network and many small random ledgers
 (disjoint wallets, one after another in time), runs the Spark build on it, and requires
 the routes to equal lifo.sweep and the labels and holdings to equal lifo.fresh_trace.
 Half of the one-wallet clusters are left out of membership, so the job's own singletons,
-cluster -(wallet + 1), are checked as well as listed ones.
+cluster -(wallet + 1), are checked as well as listed ones. --hot-key-rows and
+--chunk-events are the job's; set low, they send most keys down the broadcast path and
+sweep most clusters in chunks.
 """
 import argparse
 import random
@@ -60,7 +63,8 @@ def expected(L, blocks):
     return routes, labels, {c: v for c, v in hold.items() if v}, cluster_of
 
 
-def actual(spark, L, blocks, partitions, labels_checkpoint_every, jump_table=False):
+def actual(spark, L, blocks, partitions, labels_checkpoint_every, jump_table=False,
+           hot_key_rows=None, chunk_events=None):
     import pandas as pd
     from lifo_spark.build import build
 
@@ -71,7 +75,7 @@ def actual(spark, L, blocks, partitions, labels_checkpoint_every, jump_table=Fal
     membership = df({"wallet": [w for b in blocks for w in b],
                      "cluster": [i for i, b in enumerate(blocks) for _ in b]})
     out, rounds = build(transfers, sources, membership, partitions, labels_checkpoint_every,
-                        jump_table)
+                        jump_table, hot_key_rows=hot_key_rows, chunk_events=chunk_events)
     pieces = out["pieces"].toPandas().sort_values(["t", "k"])
     routes = {t: tuple(g[["s", "offset", "length"]].to_numpy().ravel().tolist())
               for t, g in pieces.groupby("t")}
@@ -95,6 +99,8 @@ def main():
     ap.add_argument("--labels-checkpoint-every", type=int, default=1)
     ap.add_argument("--jump-table", action="store_true",
                     help="propagate over heads only, as the job's --jump-table does")
+    ap.add_argument("--hot-key-rows", type=int, help="the job's --hot-key-rows")
+    ap.add_argument("--chunk-events", type=int, help="the job's --chunk-events")
     args = ap.parse_args()
     sys.path.insert(0, args.repo)
 
@@ -112,7 +118,8 @@ def main():
     spark.sparkContext.setLogLevel("ERROR")
     got_routes, got_labels, got_hold, rounds = actual(spark, L, listed, args.partitions,
                                                       args.labels_checkpoint_every,
-                                                      args.jump_table)
+                                                      args.jump_table, args.hot_key_rows,
+                                                      args.chunk_events)
     spark.stop()
 
     checks = [("routes", want_routes, got_routes), ("stolen labels", want_labels, got_labels),
